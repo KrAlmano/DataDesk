@@ -6,7 +6,7 @@ from numbers import Integral
 import re
 
 import pandas as pd
-from PySide6.QtCore import QObject, QRunnable, QSettings, QThreadPool, QTimer, Qt, Signal, Slot
+from PySide6.QtCore import QObject, QPoint, QRunnable, QSettings, QThreadPool, QTimer, Qt, Signal, Slot
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -18,18 +18,20 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QLayout,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QProgressBar,
     QPushButton,
-    QScrollArea,
     QSizePolicy,
     QSplitter,
     QStackedWidget,
     QTableView,
     QTabWidget,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -38,7 +40,8 @@ from .core import FilterRule, apply_filters, display_value, infer_kind, parse_da
 from .dialogs import ExportDialog, ImportDialog, RowDialog, demo_frame
 from .io import ImportOptions, inspect_file, read_table, write_table
 from .models import Document, TableModel
-from .theme import STYLE
+from .theme import scaled_style
+from .widgets import ControlScrollArea, ElidedLabel, Notice
 
 
 OPERATORS = [
@@ -103,11 +106,22 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("DataDesk")
-        self.resize(1440, 900)
-        self.setMinimumSize(1120, 700)
-        self.setStyleSheet(STYLE)
+        self.setMinimumSize(720, 480)
         self.setAcceptDrops(True)
         self.settings = QSettings("DataDesk", "DataDesk")
+        try:
+            self.zoom_percent = max(75, min(150, int(self.settings.value("ui_zoom", 100))))
+        except (ValueError, TypeError):
+            self.zoom_percent = 100
+        self.setStyleSheet(scaled_style(self.zoom_percent))
+        self.sidebar_compact = False
+        self.compact_mode = False
+        self._focus_filters = False
+        self._wide_filter_visible = True
+        self._layout_ready = False
+        self._in_relayout = False
+        self._last_layout = None
+        self._wide_filter_width = 320
         self.pool = QThreadPool(self)
         self.pool.setMaxThreadCount(2)
         self.tasks = {}
@@ -134,39 +148,54 @@ class MainWindow(QMainWindow):
         self.search_timer.timeout.connect(self.apply_view)
         self._build()
         self._menus()
+        self._zoom_controls()
+        self._layout_ready = True
         self._recent()
         self._controls()
+        self._fit_screen()
 
     def _build(self):
         root = QWidget()
         outer = QHBoxLayout(root)
+        outer.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
         self.setCentralWidget(root)
         side = QFrame()
+        self.sidebar = side
         side.setObjectName("sidebar")
         side.setFixedWidth(220)
         side_layout = QVBoxLayout(side)
+        self.sidebar_layout = side_layout
         side_layout.setContentsMargins(20, 28, 20, 22)
         side_layout.setSpacing(12)
         brand = QHBoxLayout()
+        self.brand_layout = brand
         mark = label("D", "brandMark")
+        self.brand_mark = mark
         mark.setFixedSize(39, 39)
         mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
         brand.addWidget(mark)
-        brand.addWidget(label("DataDesk", "brand"))
+        self.brand_text = label("DataDesk", "brand")
+        brand.addWidget(self.brand_text)
         side_layout.addLayout(brand)
-        subtitle = label("Veriden sonuca, kolayca.")
-        subtitle.setStyleSheet("font-size: 11px; margin-bottom: 24px;")
+        subtitle = label("Veriden sonuca, kolayca.", "sidebarTagline")
+        self.sidebar_subtitle = subtitle
         side_layout.addWidget(subtitle)
         self.open_button = button("＋  Dosya aç", self.open_file, "primary")
         self.open_button.setToolTip("Excel, CSV veya TSV aç · Ctrl/Cmd+O")
+        self.open_button.setAccessibleName("Dosya aç")
         side_layout.addWidget(self.open_button)
         self.demo_button = button("▦  Örnek veriyi keşfet", self.open_demo)
+        self.demo_button.setAccessibleName("Örnek veriyi keşfet")
+        self.demo_button.setToolTip("Örnek veriyi keşfet")
         side_layout.addWidget(self.demo_button)
-        side_layout.addSpacing(24)
-        recent_label = label("SON AÇILANLAR")
-        recent_label.setStyleSheet("font-size: 10px; letter-spacing: 1px; font-weight: 700;")
+        self.rail_recent = button("◷", self._show_recent_menu)
+        self.rail_recent.setAccessibleName("Son açılan dosyalar")
+        self.rail_recent.setToolTip("Son açılan dosyalar")
+        side_layout.addWidget(self.rail_recent)
+        recent_label = label("SON AÇILANLAR", "sidebarCaption")
+        self.recent_label = recent_label
         side_layout.addWidget(recent_label)
         self.recent_list = QListWidget()
         self.recent_list.setWordWrap(True)
@@ -176,34 +205,51 @@ class MainWindow(QMainWindow):
         side_layout.addWidget(self.clear_recent)
         side_layout.addSpacing(12)
         privacy = label(
-            "YEREL ÇALIŞMA ALANI\n\nDosyalarınız cihazınızda kalır.\nKaynak dosyalar değiştirilmez."
+            "YEREL ÇALIŞMA ALANI\n\nDosyalarınız cihazınızda kalır.\nKaynak dosyalar değiştirilmez.",
+            "sidebarPrivacy",
         )
+        self.privacy_label = privacy
         privacy.setWordWrap(True)
-        privacy.setStyleSheet("font-size: 11px; line-height: 1.4; color: #9bb5a8;")
         side_layout.addWidget(privacy)
+        side_layout.addStretch(0)
         outer.addWidget(side)
 
         main = QWidget()
         main_layout = QVBoxLayout(main)
+        self.main_layout = main_layout
         main_layout.setContentsMargins(28, 25, 28, 16)
         main_layout.setSpacing(16)
-        top = QHBoxLayout()
+        self.top_line = QWidget()
+        top = QHBoxLayout(self.top_line)
+        top.setContentsMargins(0, 0, 0, 0)
         top.addWidget(label("ÇALIŞMA ALANI  /  VERİ DÜZENLEYİCİ", "eyebrow"))
         top.addStretch()
         top.addWidget(label("●  Cihazınızda çalışır", "badge"))
-        main_layout.addLayout(top)
+        main_layout.addWidget(self.top_line)
         heading = QHBoxLayout()
         titles = QVBoxLayout()
         titles.setSpacing(4)
-        titles.addWidget(label("Verilerinize netlik katın.", "title"))
+        self.title_label = label("Verilerinize netlik katın.", "title")
+        self.title_label.setWordWrap(True)
+        self.title_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        titles.addWidget(self.title_label)
         self.subtitle = label("Dosyanızı açın, filtrelerinizi belirleyin, sonucu paylaşın.", "muted")
+        self.subtitle.setWordWrap(True)
+        self.subtitle.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         titles.addWidget(self.subtitle)
         heading.addLayout(titles, 1)
+        self.filter_toggle = button("Filtreler", self.toggle_filters, "filterToggle")
+        self.filter_toggle.setCheckable(True)
+        self.filter_toggle.setAccessibleName("Filtre panelini göster veya gizle")
+        self.filter_toggle.setToolTip("Filtre panelini aç/kapat · Ctrl/Cmd+Shift+F")
+        heading.addWidget(self.filter_toggle)
         self.export_button = button("Dışa aktar  ↗", self.export_file, "primary")
         self.export_button.setMinimumHeight(40)
         heading.addWidget(self.export_button)
         main_layout.addLayout(heading)
-        stats = QHBoxLayout()
+        self.stats_container = QWidget()
+        stats = QHBoxLayout(self.stats_container)
+        stats.setContentsMargins(0, 0, 0, 0)
         stats.setSpacing(14)
         self.stats = {}
         for key, title, hint in [
@@ -219,13 +265,17 @@ class MainWindow(QMainWindow):
             card_layout.addWidget(label(title, "eyebrow"))
             value = label("—", "statValue")
             card_layout.addWidget(value)
-            card_layout.addWidget(label(hint, "muted"))
+            hint_label = label(hint, "muted")
+            hint_label.setWordWrap(True)
+            hint_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+            card_layout.addWidget(hint_label)
             self.stats[key] = value
             stats.addWidget(card)
-        main_layout.addLayout(stats)
-        self.notice = label("", "notice")
-        self.notice.setWordWrap(True)
-        self.notice.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        main_layout.addWidget(self.stats_container)
+        self.compact_summary = label("Dosya açarak başlayın", "muted")
+        self.compact_summary.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        main_layout.addWidget(self.compact_summary)
+        self.notice = Notice()
         self.notice.hide()
         main_layout.addWidget(self.notice)
         self.progress = QProgressBar()
@@ -242,6 +292,7 @@ class MainWindow(QMainWindow):
         self.splitter.setStretchFactor(0, 1)
         self.splitter.setStretchFactor(1, 0)
         self.splitter.setSizes([820, 300])
+        self.splitter.splitterMoved.connect(self._splitter_moved)
         main_layout.addWidget(self.splitter, 1)
         self.footer = label("01  DOSYAYI AÇ      →      02  FİLTRELE      →      03  DIŞA AKTAR", "eyebrow")
         self.footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -249,16 +300,182 @@ class MainWindow(QMainWindow):
         outer.addWidget(main, 1)
         self.statusBar().showMessage("Hazır · Excel, CSV veya TSV dosyasını pencereye sürükleyebilirsiniz.")
 
+    def _px(self, value):
+        return round(value * self.zoom_percent / 100)
+
+    def _fit_screen(self):
+        available = self.screen().availableGeometry()
+        width = min(1440, max(360, available.width() - 48))
+        height = min(900, max(360, available.height() - 64))
+        self.setMinimumSize(min(720, width), min(480, height))
+        self._relayout(width, height)
+        self.resize(width, height)
+        self.move(
+            available.x() + (available.width() - width) // 2,
+            available.y() + (available.height() - height) // 2,
+        )
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._layout_ready:
+            self._relayout()
+
+    def _relayout(self, width=None, height=None):
+        if not self._layout_ready or self._in_relayout:
+            return
+        self._in_relayout = True
+        try:
+            width = self.width() if width is None else width
+            height = self.height() if height is None else height
+            compact_side = width < self._px(1240)
+            short = height < self._px(760)
+            side_width = self._px(72 if compact_side else 220)
+            padding = self._px(12 if compact_side else 24)
+            content_width = width - side_width - padding * 2
+            focus = content_width < self._px(820)
+            self.sidebar_compact = compact_side
+            self.compact_mode = focus
+            self.sidebar.setFixedWidth(side_width)
+            edge = self._px(12 if compact_side else 20)
+            self.sidebar_layout.setContentsMargins(edge, self._px(20), edge, self._px(18))
+            self.sidebar_layout.setSpacing(self._px(12))
+            self.sidebar_layout.setStretch(self.sidebar_layout.count() - 1, 1 if compact_side else 0)
+            self.brand_mark.setFixedSize(self._px(39), self._px(39))
+            for widget in (
+                self.brand_text,
+                self.sidebar_subtitle,
+                self.recent_label,
+                self.recent_list,
+                self.clear_recent,
+                self.privacy_label,
+            ):
+                widget.setVisible(not compact_side)
+            self.rail_recent.setVisible(compact_side)
+            self.open_button.setText("＋" if compact_side else "＋  Dosya aç")
+            self.demo_button.setText("▦" if compact_side else "▦  Örnek veriyi keşfet")
+            for widget in (self.open_button, self.demo_button, self.rail_recent):
+                widget.setFixedHeight(self._px(44))
+            self.main_layout.setContentsMargins(padding, self._px(12 if short else 24), padding, self._px(12))
+            self.main_layout.setSpacing(self._px(8 if short else 14))
+            self.top_line.setVisible(not short and not compact_side)
+            self.title_label.setText(
+                "Çalışma alanı" if short or compact_side else "Verilerinize netlik katın."
+            )
+            self.title_label.setVisible(content_width >= self._px(700))
+            self.subtitle.setVisible(not short and not compact_side)
+            self.stats_container.setVisible(not short)
+            self.compact_summary.setVisible(short)
+            self.footer.setVisible(not short and not compact_side)
+            self.delete_button.setText("Satır sil" if compact_side else "Seçili satırları sil")
+            self.search.setMinimumWidth(self._px(140))
+            self.search.setMaximumWidth(self._px(260))
+            self.table_panel.setMinimumWidth(min(self._px(340), content_width))
+            self.filter_container.setMinimumWidth(0 if focus else self._px(270))
+            self.filter_container.setMaximumWidth(16777215 if focus else self._px(460))
+            show_filters = self._focus_filters if focus else self._wide_filter_visible
+            self.table_panel.setVisible(not focus or not show_filters)
+            self.filter_container.setVisible(show_filters)
+            self.filter_toggle.setChecked(show_filters)
+            self.filter_toggle.setText(
+                "Tabloya dön" if focus and show_filters else f"Filtreler ({len(self.rules)})"
+            )
+            layout_state = (focus, show_filters, self.zoom_percent)
+            if layout_state != self._last_layout:
+                if focus:
+                    self.splitter.setSizes([0, content_width] if show_filters else [content_width, 0])
+                else:
+                    panel_width = min(self._px(self._wide_filter_width), content_width // 2)
+                    self.splitter.setSizes(
+                        [content_width - panel_width, panel_width] if show_filters else [content_width, 0]
+                    )
+                self._last_layout = layout_state
+            self.notice.set_limit(self._px(84))
+        finally:
+            self._in_relayout = False
+
+    def _splitter_moved(self, *_):
+        if not self.compact_mode and not self._in_relayout and self._wide_filter_visible:
+            self._wide_filter_width = self.splitter.sizes()[1] * 100 / self.zoom_percent
+
+    def toggle_filters(self):
+        if self.compact_mode:
+            self._focus_filters = not self._focus_filters
+        else:
+            self._wide_filter_visible = not self._wide_filter_visible
+        self._relayout()
+        if self.filter_scroll.isVisible():
+            self.column.setFocus()
+        else:
+            self.search.setFocus()
+
+    def _return_to_table(self):
+        if self.compact_mode and self._focus_filters:
+            self._focus_filters = False
+        self._relayout()
+
+    def _show_recent_menu(self):
+        menu = QMenu(self)
+        paths = self.settings.value("recent_files", [], type=list)
+        for path in paths:
+            action = menu.addAction(Path(path).name)
+            action.setToolTip(path)
+            action.triggered.connect(lambda checked=False, p=path: self.open_path(p))
+        if not paths:
+            menu.addAction("Henüz dosya açılmadı").setEnabled(False)
+        menu.exec(self.rail_recent.mapToGlobal(QPoint(self.rail_recent.width(), 0)))
+
+    def _zoom_controls(self):
+        controls = QWidget()
+        row = QHBoxLayout(controls)
+        row.setContentsMargins(4, 0, 4, 0)
+        row.setSpacing(2)
+        self.zoom_out = QToolButton()
+        self.zoom_out.setText("−")
+        self.zoom_out.setToolTip("Arayüzü küçült · Ctrl/Cmd+−")
+        self.zoom_out.clicked.connect(lambda: self.set_zoom(self.zoom_percent - 25))
+        self.zoom_label = QToolButton()
+        self.zoom_label.setToolTip("Arayüz büyüklüğünü %100'e döndür")
+        self.zoom_label.clicked.connect(lambda: self.set_zoom(100))
+        self.zoom_in = QToolButton()
+        self.zoom_in.setText("＋")
+        self.zoom_in.setToolTip("Arayüzü büyüt · Ctrl/Cmd++")
+        self.zoom_in.clicked.connect(lambda: self.set_zoom(self.zoom_percent + 25))
+        for widget in (self.zoom_out, self.zoom_label, self.zoom_in):
+            row.addWidget(widget)
+        self.statusBar().addPermanentWidget(controls)
+        self.zoom_label.setText(f"%{self.zoom_percent}")
+        self.zoom_out.setEnabled(self.zoom_percent > 75)
+        self.zoom_in.setEnabled(self.zoom_percent < 150)
+
+    def set_zoom(self, percent):
+        percent = max(75, min(150, round(percent)))
+        old = self.zoom_percent
+        self.zoom_percent = percent
+        self.settings.setValue("ui_zoom", percent)
+        self.setStyleSheet(scaled_style(percent))
+        self.zoom_label.setText(f"%{percent}")
+        self.zoom_out.setEnabled(percent > 75)
+        self.zoom_in.setEnabled(percent < 150)
+        self.table.verticalHeader().setDefaultSectionSize(self._px(37))
+        self.table.horizontalHeader().setDefaultSectionSize(self._px(155))
+        self.table.horizontalHeader().setMinimumSectionSize(self._px(65))
+        for col in range(min(self.model.columnCount(), 200)):
+            self.table.setColumnWidth(col, round(self.table.columnWidth(col) * percent / old))
+        self._relayout()
+
     def _table_panel(self):
         panel = QFrame()
+        self.table_panel = panel
         panel.setObjectName("card")
-        panel.setMinimumWidth(400)
+        panel.setMinimumWidth(340)
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         toolbar = QHBoxLayout()
+        self.table_toolbar = toolbar
         toolbar.setContentsMargins(16, 12, 16, 12)
-        self.file_label = label("Veri tablosu", "sectionTitle")
+        self.file_label = ElidedLabel("Veri tablosu")
+        self.file_label.setObjectName("sectionTitle")
         self.file_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         toolbar.addWidget(self.file_label, 1)
         self.search = QLineEdit()
@@ -270,13 +487,14 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(self.search)
         layout.addLayout(toolbar)
         self.stack = QStackedWidget()
+        self.stack.setMinimumSize(0, 0)
+        self.stack.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         empty = QWidget()
         empty_layout = QVBoxLayout(empty)
         empty_layout.setContentsMargins(32, 30, 32, 30)
         empty_layout.addStretch()
-        icon = label("▦")
+        icon = label("▦", "emptyIcon")
         icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon.setStyleSheet("font-size: 64px; color: #91b49c;")
         empty_layout.addWidget(icon)
         welcome = label("Bir dosyayla başlayın", "sectionTitle")
         welcome.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -287,6 +505,7 @@ class MainWindow(QMainWindow):
         )
         desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         desc.setWordWrap(True)
+        desc.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         empty_layout.addWidget(desc)
         empty_button = button("Dosya seç", self.open_file, "primary")
         empty_button.setFixedWidth(180)
@@ -329,9 +548,12 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(no_results)
         layout.addWidget(self.stack, 1)
         actions = QHBoxLayout()
+        self.row_actions = actions
         actions.setContentsMargins(14, 10, 14, 10)
         self.add_button = button("＋ Satır", self.add_row)
         self.delete_button = button("Seçili satırları sil", self.delete_rows, "danger")
+        self.delete_button.setToolTip("Seçili satırları çalışma verisinden sil")
+        self.delete_button.setAccessibleName("Seçili satırları sil")
         self.undo_button = button("↶", self.undo)
         self.undo_button.setToolTip("Düzenlemeyi geri al · Ctrl/Cmd+Z (son 10 işlem)")
         self.redo_button = button("↷", self.redo)
@@ -345,14 +567,20 @@ class MainWindow(QMainWindow):
         self.splitter.addWidget(panel)
 
     def _filter_panel(self):
-        scroll = QScrollArea()
+        self.filter_container = QFrame()
+        self.filter_container.setObjectName("filterPanel")
+        container_layout = QVBoxLayout(self.filter_container)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setSpacing(0)
+        scroll = ControlScrollArea()
+        self.filter_scroll = scroll
         scroll.setWidgetResizable(True)
+        scroll.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setMinimumWidth(280)
-        scroll.setMaximumWidth(380)
+        scroll.setMinimumWidth(0)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         panel = QFrame()
-        panel.setObjectName("filterPanel")
+        panel.setObjectName("filterBody")
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(18, 18, 18, 18)
         layout.setSpacing(8)
@@ -383,6 +611,8 @@ class MainWindow(QMainWindow):
         self.column = QComboBox()
         self.column.setAccessibleName("Filtre sütunu")
         self.column.currentIndexChanged.connect(self._column_changed)
+        self.column.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.column.setMinimumContentsLength(10)
         build.addWidget(self.column)
         self.type_label = label("Bir dosya açın", "muted")
         build.addWidget(self.type_label)
@@ -424,16 +654,13 @@ class MainWindow(QMainWindow):
         self.value2.returnPressed.connect(self.add_filter)
         self.value2.hide()
         build.addWidget(self.value2)
-        self.filter_hint = label("Metin araması büyük/küçük harfe duyarsızdır.", "muted")
+        self.filter_hint = label("Metin araması büyük/küçük harfe duyarsızdır.", "hint")
         self.filter_hint.setWordWrap(True)
-        self.filter_hint.setStyleSheet("font-size: 11px;")
         build.addWidget(self.filter_hint)
         self.filter_button = button("＋  Filtre ekle", self.add_filter, "primary")
-        build.addWidget(self.filter_button)
         self.filter_error = label("", "error")
         self.filter_error.setWordWrap(True)
         self.filter_error.hide()
-        build.addWidget(self.filter_error)
         build.addStretch()
         active_layout.addWidget(label("KOŞULLARI BİRLEŞTİR", "eyebrow"))
         self.match_combo = QComboBox()
@@ -447,16 +674,50 @@ class MainWindow(QMainWindow):
         self.rule_list.setToolTip("Kaldırmak istediğiniz koşulu seçin.")
         active_layout.addWidget(self.rule_list, 1)
         self.remove_button = button("Seçili filtreyi kaldır", self.remove_filter)
-        active_layout.addWidget(self.remove_button)
         tips = label(
             "İPUCU\n\nSıralamak için sütun başlığına tıklayın. Hücreyi düzenlemek için çift tıklayın.",
-            "muted",
+            "hint",
         )
         tips.setWordWrap(True)
-        tips.setStyleSheet("font-size: 11px; padding-top: 8px;")
         active_layout.addWidget(tips)
         scroll.setWidget(panel)
-        self.splitter.addWidget(scroll)
+        container_layout.addWidget(scroll, 1)
+        self.filter_footer = QWidget()
+        footer = QVBoxLayout(self.filter_footer)
+        footer.setContentsMargins(18, 8, 18, 18)
+        footer.setSpacing(8)
+        footer.addWidget(self.filter_error)
+        footer.addWidget(self.filter_button)
+        footer.addWidget(self.remove_button)
+        container_layout.addWidget(self.filter_footer)
+        self.filter_tabs.currentChanged.connect(self._filter_tab_changed)
+        self._filter_tab_changed()
+        scroll.watch_focus(
+            [
+                self.column,
+                self.kind,
+                self.number_format,
+                self.operator,
+                self.value,
+                self.value2,
+                self.match_combo,
+                self.rule_list,
+                self.reset_button,
+            ]
+        )
+        for control in panel.findChildren(QComboBox):
+            control.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+            control.setMinimumContentsLength(10)
+            control.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+            control.currentTextChanged.connect(control.setToolTip)
+            control.setToolTip(control.currentText())
+        self.splitter.addWidget(self.filter_container)
+
+    def _filter_tab_changed(self, *_):
+        builder = self.filter_tabs.currentIndex() == 0
+        self.filter_button.setVisible(builder)
+        self.remove_button.setVisible(not builder)
+        self.filter_error.setVisible(builder and bool(self.filter_error.text()))
 
     def _menus(self):
         menu = self.menuBar().addMenu("Dosya")
@@ -481,6 +742,21 @@ class MainWindow(QMainWindow):
             action.triggered.connect(callback)
             edit.addAction(action)
         help_menu = self.menuBar().addMenu("Yardım")
+        view = self.menuBar().insertMenu(help_menu.menuAction(), QMenu("Görünüm", self))
+        for text, shortcut, callback in [
+            ("Filtreleri göster/gizle", "Ctrl+Shift+F", self.toggle_filters),
+            ("Arayüzü büyüt", QKeySequence.StandardKey.ZoomIn, lambda: self.set_zoom(self.zoom_percent + 25)),
+            (
+                "Arayüzü küçült",
+                QKeySequence.StandardKey.ZoomOut,
+                lambda: self.set_zoom(self.zoom_percent - 25),
+            ),
+            ("Gerçek boyut (%100)", "Ctrl+0", lambda: self.set_zoom(100)),
+        ]:
+            action = QAction(text, self)
+            action.setShortcut(shortcut)
+            action.triggered.connect(callback)
+            view.menu().addAction(action)
         about = QAction("DataDesk hakkında", self)
         about.triggered.connect(
             lambda: QMessageBox.about(
@@ -685,6 +961,7 @@ class MainWindow(QMainWindow):
         self.filter_tabs.setTabText(1, "Aktif (0)")
         self.filter_tabs.setCurrentIndex(0)
         self.filter_error.hide()
+        self.filter_error.setText("")
         self.notice.setText("\n".join(warnings or []))
         self.notice.setVisible(bool(warnings))
         self.file_label.setText(name)
@@ -786,7 +1063,7 @@ class MainWindow(QMainWindow):
             kind=kind,
             number_format=self.number_format.currentData(),
         )
-        self.apply_view(rules=[*self.rules, rule])
+        self.apply_view(rules=[*self.rules, rule], after=self._return_to_table)
 
     def remove_filter(self):
         index = self.rule_list.currentRow()
@@ -854,6 +1131,7 @@ class MainWindow(QMainWindow):
             self.search_text = query
             self.sort_column, self.sort_ascending = column, ascending
             self.filter_error.hide()
+            self.filter_error.setText("")
             self._rule_labels()
             self._show_frame(frame)
             self._column_changed()
@@ -905,10 +1183,12 @@ class MainWindow(QMainWindow):
         self.stats["filters"].setText(str(len(self.rules)))
         if self.document:
             text = f"{len(frame):,} / {len(self.document.frame):,} satır · {len(frame.columns)} sütun"
+            self.compact_summary.setText(text + f" · {len(self.rules)} filtre")
             if self.dirty:
                 text += " · Düzenlemeler bellekte; dışa aktararak kaydedin."
             self.statusBar().showMessage(text)
         self._controls()
+        self._relayout()
 
     def _after_edit(self):
         self.dirty = True

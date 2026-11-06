@@ -4,12 +4,20 @@ Bu belge, önceki uygulamanın incelenmesinde bulunan somut sorunları ve yeni y
 
 ## 6 Kasım 2026 yerel doğrulaması
 
-- macOS, Python 3.12.13, pandas 3.1.1 ve PySide6-Essentials 6.12.0 ile **224 otomatik test** başarılı oldu.
-- Ek olarak, macOS'un gerçek pencere sistemi (`cocoa`) üzerinde **24 arayüz/model testi** başarılı oldu; örnek veriyle açılış, filtre oluşturma ve aktif filtre ekranları görsel olarak incelendi.
+- macOS, Python 3.12.13, pandas 3.1.1 ve PySide6-Essentials 6.12.0 ile **259 otomatik test** başarılı oldu.
+- Ek olarak, macOS'un gerçek pencere sistemi (`cocoa`) ile başlatılan **59 arayüz/model/yerleşim testi** başarılı oldu. DPI benzetimleri kendi `offscreen` alt işlemlerinde çalışır. Örnek veriyle geniş/dar görünüm, filtre oluşturma ve %150 arayüz ekranları görsel olarak incelendi.
 - `tools/benchmark.py`, geçici bir dizinde **100.000 satır × 8 sütun** CSV oluşturup bağımsız hesaplanan **1.412 kaydı** filtreledi, sıraladı ve seçilen 6 sütunu Excel'e aktardı. Yeniden okunan bütün hücreler ve sıra, bağımsız beklenen sonuçla karşılaştırıldı. Kimliklerdeki sıfırlar, uzun kodlar, Türkçe karakterler ve çok satırlı metinler korundu.
 - Ruff ve `git diff --check` kontrolleri başarılı oldu. Bu sonuçlar yukarıdaki yerel ortam içindir; farklı işletim sistemleri için CI matrisi ayrıca çalışır.
 
 Tekrarlama: `QT_QPA_PLATFORM=offscreen uv run --extra dev pytest -q`, `uv run python tools/benchmark.py`. Görselleri yeniden oluşturma: `uv run python tools/capture_screenshots.py`; bu araç yalnızca yapay örnek veri kullanır.
+
+### Ölçeklenebilirlik ve okunabilirlik
+
+- 800×600, 1024×768, 1280×720, 1440×900 ve 1920×1080 pencere boyutları; %75, %100, %125 ve %150 uygulama büyüklüğü; 1×, 1,5× ve 2× cihaz ölçeği ayrı Qt süreçlerinde doğrulandı.
+- Önceki 1120×700 alt sınırı kaldırıldı. İlk pencere kullanılabilir ekran alanına sığdırılır; dar görünümde filtreler tabloyu sıkıştırmak yerine ayrı bir görünümde açılır.
+- 20 yerleşim senaryosu; arama, çıktı ve satır düğmelerinin erişimi, sabit filtre düğmeleri, hatalı aralık mesajı, klavyeyle alanlar arası geçiş, uzun sütun/dosya adları ve uzun uyarılar sırasında tablo alanının korunmasını denetler. Boyut veya büyüklük değişimi kaynak veriyi, filtreleri ve sıralanmış sonuçları değiştirmez.
+- 15 dosya penceresi senaryosu; 640×480 boyutunda %100–200 tipografi, uzun başlık/uyarı, 35 alan ve son işlem düğmelerinin erişimini denetler.
+- Destekleyici metinlerin kontrastı güçlendirildi, açılır listelere belirgin oklar eklendi; dosya başlığı sığmadığında ortadan kısaltılır ve tam ad ipucunda korunur.
 
 ## Önceki sürümde bulunan sorunlar
 

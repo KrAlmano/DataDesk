@@ -3,9 +3,10 @@
 from pathlib import Path
 
 import pandas as pd
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QBoxLayout,
     QCheckBox,
     QComboBox,
     QDialog,
@@ -18,6 +19,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSpinBox,
     QTableView,
     QVBoxLayout,
@@ -30,9 +32,93 @@ from .models import TableModel
 
 def combo(items):
     widget = QComboBox()
+    widget.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+    widget.setMinimumContentsLength(12)
+    widget.setMinimumWidth(0)
+    widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
     for text, value in items:
         widget.addItem(text, value)
+    widget.currentTextChanged.connect(widget.setToolTip)
+    widget.setToolTip(widget.currentText())
     return widget
+
+
+def wrapped_label(text, name=None):
+    widget = QLabel(text)
+    widget.setTextFormat(Qt.TextFormat.PlainText)
+    widget.setWordWrap(True)
+    widget.setMinimumWidth(1)
+    widget.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+    if name:
+        widget.setObjectName(name)
+    return widget
+
+
+def form_layout():
+    form = QFormLayout()
+    form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+    form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+    form.setHorizontalSpacing(14)
+    form.setVerticalSpacing(10)
+    return form
+
+
+class ScrollableDialog(QDialog):
+    """Keep final actions visible while content remains reachable at large zoom."""
+
+    def __init__(self, preferred_size, parent=None):
+        super().__init__(parent)
+        self._preferred_size = QSize(*preferred_size)
+        self._initial_fit_done = False
+        self._adaptive_rows = []
+        self.setMinimumSize(360, 280)
+        self.resize(self._preferred_size)
+        self.shell = QVBoxLayout(self)
+        self.shell.setContentsMargins(20, 18, 20, 18)
+        self.shell.setSpacing(12)
+        self.content_scroll = QScrollArea()
+        self.content_scroll.setWidgetResizable(True)
+        self.content_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.content_scroll.setMinimumSize(0, 0)
+        self.content = QWidget()
+        self.content_layout = QVBoxLayout(self.content)
+        self.content_layout.setContentsMargins(2, 2, 8, 2)
+        self.content_layout.setSpacing(12)
+        self.content_scroll.setWidget(self.content)
+        self.shell.addWidget(self.content_scroll, 1)
+
+    def add_adaptive_row(self, row):
+        self._adaptive_rows.append(row)
+
+    def showEvent(self, event):
+        if not self._initial_fit_done:
+            self._initial_fit_done = True
+            screen = self.screen().availableGeometry()
+            parent = self.parentWidget()
+            width = min(self._preferred_size.width(), screen.width() - 40)
+            height = min(self._preferred_size.height(), screen.height() - 64)
+            if parent is not None:
+                width = min(width, max(360, parent.width() - 32))
+                height = min(height, max(280, parent.height() - 48))
+            self.resize(max(360, width), max(280, height))
+        super().showEvent(event)
+        self._reflow_rows()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._reflow_rows()
+
+    def _reflow_rows(self):
+        if not hasattr(self, "_adaptive_rows"):
+            return
+        horizontal = self.width() >= max(600, self.fontMetrics().height() * 36)
+        direction = QBoxLayout.Direction.LeftToRight if horizontal else QBoxLayout.Direction.TopToBottom
+        for row in self._adaptive_rows:
+            row.setDirection(direction)
+
+    def finish_with(self, buttons):
+        self.buttons = buttons
+        self.shell.addWidget(buttons)
 
 
 ENCODINGS = [
@@ -51,39 +137,34 @@ DELIMITERS = [
 ]
 
 
-class ImportDialog(QDialog):
+class ImportDialog(ScrollableDialog):
     preview_requested = Signal(object)
 
     def __init__(self, path, info, loaded=None, error="", parent=None):
-        super().__init__(parent)
+        super().__init__((850, 660), parent)
         self.setWindowTitle("DataDesk · Dosyayı içe aktar")
-        self.resize(850, 610)
-        self.setMinimumSize(620, 460)
         self.path = Path(path)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 22, 24, 22)
-        title = QLabel(self.path.name)
-        title.setObjectName("sectionTitle")
-        title.setWordWrap(True)
+        layout = self.content_layout
+        title = wrapped_label(self.path.name, "sectionTitle")
+        title.setToolTip(self.path.name)
         layout.addWidget(title)
-        subtitle = QLabel("Sayfayı ve başlığı kontrol edin. Veriler kaynak dosya değiştirilmeden açılır.")
-        subtitle.setObjectName("muted")
-        subtitle.setWordWrap(True)
+        subtitle = wrapped_label(
+            "Sayfayı ve başlığı kontrol edin. Veriler kaynak dosya değiştirilmeden açılır.", "muted"
+        )
         layout.addWidget(subtitle)
-        form = QFormLayout()
-        self.sheet = QComboBox()
-        self.sheet.addItems(info.sheets or ["CSV / TSV"])
+        form = form_layout()
+        self.sheet = combo([(name, name) for name in (info.sheets or ["CSV / TSV"])])
         self.sheet.setEnabled(bool(info.sheets))
         form.addRow("Excel sayfası", self.sheet)
-        header_line = QHBoxLayout()
         self.header = QSpinBox()
         self.header.setRange(1, 10000)
         self.header.setValue(1)
-        self.no_header = QCheckBox("Dosyada başlık yok")
+        self.no_header = QCheckBox("Başlık yok")
+        self.no_header.setAccessibleName("Dosyada başlık yok")
+        self.no_header.setToolTip("İlk satırı da veri olarak kullan; sütun başlıklarını DataDesk oluştursun.")
         self.no_header.toggled.connect(lambda checked: self.header.setEnabled(not checked))
-        header_line.addWidget(self.header)
-        header_line.addWidget(self.no_header)
-        form.addRow("Başlık satırı", header_line)
+        form.addRow("Başlık satırı", self.header)
+        form.addRow(self.no_header)
         self.encoding = combo(ENCODINGS)
         self.delimiter = combo(DELIMITERS)
         is_csv = self.path.suffix.lower() in (".csv", ".tsv")
@@ -91,23 +172,28 @@ class ImportDialog(QDialog):
         self.delimiter.setEnabled(is_csv)
         form.addRow("CSV kodlaması", self.encoding)
         form.addRow("CSV ayırıcısı", self.delimiter)
+        form.setRowVisible(self.sheet, not is_csv)
+        form.setRowVisible(self.encoding, is_csv)
+        form.setRowVisible(self.delimiter, is_csv)
         layout.addLayout(form)
         preview_row = QHBoxLayout()
-        preview_row.addWidget(QLabel("VERİ ÖNİZLEMESİ · İLK 6 SATIR"))
+        preview_row.addWidget(wrapped_label("VERİ ÖNİZLEMESİ · İLK 6 SATIR"))
         preview_row.addStretch()
         self.preview_button = QPushButton("Önizlemeyi yenile")
         self.preview_button.clicked.connect(lambda: self.preview_requested.emit(self.options()))
         preview_row.addWidget(self.preview_button)
+        self.add_adaptive_row(preview_row)
         layout.addLayout(preview_row)
         self.preview = QTableView()
         self.preview_model = TableModel(lambda *_: False, self)
         self.preview_model.editable = False
         self.preview.setModel(self.preview_model)
         self.preview.setAlternatingRowColors(True)
+        self.preview.setMinimumHeight(150)
+        self.preview.setWordWrap(False)
+        self.preview.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         layout.addWidget(self.preview, 1)
-        self.message = QLabel()
-        self.message.setObjectName("notice")
-        self.message.setWordWrap(True)
+        self.message = wrapped_label("", "notice")
         layout.addWidget(self.message)
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Open
@@ -117,7 +203,7 @@ class ImportDialog(QDialog):
         self.buttons.button(QDialogButtonBox.StandardButton.Open).setObjectName("primary")
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
-        layout.addWidget(self.buttons)
+        self.finish_with(self.buttons)
         for control in (self.sheet, self.encoding, self.delimiter):
             control.currentIndexChanged.connect(self.mark_stale)
         self.header.valueChanged.connect(self.mark_stale)
@@ -163,23 +249,20 @@ class ImportDialog(QDialog):
             super().reject()
 
 
-class ExportDialog(QDialog):
+class ExportDialog(ScrollableDialog):
     def __init__(self, columns, count, parent=None):
-        super().__init__(parent)
+        super().__init__((590, 690), parent)
         self.setWindowTitle("DataDesk · Sonuçları dışa aktar")
-        self.resize(540, 630)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 22, 24, 22)
-        title = QLabel(f"{count:,} satırı dışa aktar")
-        title.setObjectName("sectionTitle")
+        layout = self.content_layout
+        title = wrapped_label(f"{count:,} satırı dışa aktar", "sectionTitle")
         layout.addWidget(title)
-        note = QLabel(
-            "Geçerli filtreler ve sıralama çıktıya uygulanır. Boş sonuçlarda da sütun başlıkları korunur."
+        note = wrapped_label(
+            "Geçerli filtreler ve sıralama çıktıya uygulanır. Boş sonuçlarda da sütun başlıkları korunur.",
+            "muted",
         )
-        note.setWordWrap(True)
-        note.setObjectName("muted")
         layout.addWidget(note)
-        form = QFormLayout()
+        form = form_layout()
+        self.options_form = form
         self.format = combo(
             [
                 ("Excel çalışma kitabı (.xlsx)", ".xlsx"),
@@ -190,7 +273,8 @@ class ExportDialog(QDialog):
         )
         self.delimiter = combo(DELIMITERS[1:])
         self.encoding = combo(ENCODINGS[1:])
-        self.safe_csv = QCheckBox("Formül gibi başlayan metinleri güvenli yaz")
+        self.safe_csv = QCheckBox("CSV formül güvenliği")
+        self.safe_csv.setAccessibleName("Formül gibi başlayan CSV metinlerini güvenli yaz")
         self.safe_csv.setChecked(True)
         self.safe_csv.setToolTip(
             "CSV/TSV metinlerinde =, +, -, @ ile başlayan değerlerin önüne ' eklenir. Sayısal hücreler değişmez. Birebir metin çıktısı için kapatın."
@@ -200,8 +284,12 @@ class ExportDialog(QDialog):
         form.addRow("Metin kodlaması", self.encoding)
         form.addRow(self.safe_csv)
         layout.addLayout(form)
+        self.csv_safety_note = wrapped_label(
+            "Güvenli CSV çıktısı, formül gibi başlayan metinlere tek tırnak ekler.", "muted"
+        )
+        layout.addWidget(self.csv_safety_note)
         row = QHBoxLayout()
-        row.addWidget(QLabel("ÇIKTIDAKİ SÜTUNLAR"))
+        row.addWidget(wrapped_label("ÇIKTIDAKİ SÜTUNLAR"))
         row.addStretch()
         select = QPushButton("Tümünü seç")
         select.clicked.connect(lambda: self.check_all(Qt.CheckState.Checked))
@@ -209,21 +297,22 @@ class ExportDialog(QDialog):
         clear.clicked.connect(lambda: self.check_all(Qt.CheckState.Unchecked))
         row.addWidget(select)
         row.addWidget(clear)
+        self.add_adaptive_row(row)
         layout.addLayout(row)
         self.columns = QListWidget()
+        self.columns.setMinimumHeight(150)
+        self.columns.setWordWrap(True)
         self.columns.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         for column in columns:
             item = QListWidgetItem(column)
+            item.setToolTip(column)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked)
             self.columns.addItem(item)
         layout.addWidget(self.columns, 1)
-        hint = QLabel("Sütunları sürükleyerek çıktıdaki sırayı değiştirebilirsiniz.")
-        hint.setObjectName("muted")
-        hint.setWordWrap(True)
+        hint = wrapped_label("Sütunları sürükleyerek çıktıdaki sırayı değiştirebilirsiniz.", "muted")
         layout.addWidget(hint)
-        self.error = QLabel("")
-        self.error.setObjectName("error")
+        self.error = wrapped_label("", "error")
         self.error.hide()
         layout.addWidget(self.error)
         buttons = QDialogButtonBox(
@@ -234,7 +323,7 @@ class ExportDialog(QDialog):
         buttons.button(QDialogButtonBox.StandardButton.Save).setObjectName("primary")
         buttons.accepted.connect(self.validate)
         buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        self.finish_with(buttons)
         self.format.currentIndexChanged.connect(self.update_controls)
         self.update_controls()
 
@@ -243,6 +332,10 @@ class ExportDialog(QDialog):
         self.encoding.setEnabled(text)
         self.delimiter.setEnabled(self.format.currentData() == ".csv")
         self.safe_csv.setEnabled(text)
+        self.options_form.setRowVisible(self.encoding, text)
+        self.options_form.setRowVisible(self.delimiter, self.format.currentData() == ".csv")
+        self.options_form.setRowVisible(self.safe_csv, text)
+        self.csv_safety_note.setVisible(text)
 
     def check_all(self, state):
         for i in range(self.columns.count()):
@@ -271,25 +364,31 @@ class ExportDialog(QDialog):
         )
 
 
-class RowDialog(QDialog):
+class RowDialog(ScrollableDialog):
     def __init__(self, columns, parent=None):
-        super().__init__(parent)
+        super().__init__((560, 560), parent)
         self.setWindowTitle("DataDesk · Satır ekle")
-        self.resize(500, 500)
-        layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("Boş bırakılan hücreler boş olarak kaydedilir."))
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        content = QWidget()
-        form = QFormLayout(content)
+        layout = self.content_layout
+        layout.addWidget(wrapped_label("Boş bırakılan hücreler boş olarak kaydedilir.", "muted"))
+        form = QVBoxLayout()
+        form.setSpacing(14)
         self.entries = {}
         for col in columns:
             entry = QLineEdit()
             entry.setAccessibleName(col)
-            form.addRow(col, entry)
+            title = wrapped_label(str(col))
+            title.setToolTip(str(col))
+            title.setBuddy(entry)
+            field = QWidget()
+            field_layout = QVBoxLayout(field)
+            field_layout.setContentsMargins(0, 0, 0, 0)
+            field_layout.setSpacing(6)
+            field_layout.addWidget(title)
+            field_layout.addWidget(entry)
+            form.addWidget(field)
             self.entries[col] = entry
-        scroll.setWidget(content)
-        layout.addWidget(scroll)
+        layout.addLayout(form)
+        layout.addStretch()
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok
         )
@@ -297,7 +396,7 @@ class RowDialog(QDialog):
         buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Satır ekle")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        self.finish_with(buttons)
 
     def values(self):
         return {c: entry.text() if entry.text() else None for c, entry in self.entries.items()}

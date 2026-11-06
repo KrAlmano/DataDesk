@@ -13,6 +13,8 @@ Excel ve CSV dosyalarını açın, birkaç adımda filtreleyin ve ihtiyacınız 
 - **Sıralama ve düzenleme:** Sütun tipine göre sıralama, satır ekleme/silme ve hücre düzenleme; düzenlemeleri geri alma ve yineleme.
 - **İstediğiniz çıktıyı alma:** Görünen sonucun tüm satırlarını ve seçtiğiniz sütunları Excel, CSV, TSV veya Word olarak dışa aktarma. Sıfır sonuçta da sütun başlıklarını içeren dosya oluşturma.
 - **Büyük tablolarla çalışma:** Ekrandaki hücreleri gerektiğinde çizen Qt tablo modeli; dosya okuma, filtreleme ve çıktı işlemleri için arka plan görevleri.
+- **Ekrana uyum sağlayan görünüm:** Dar pencerede otomatik küçülen yan menü ve tablo/filtre geçişi; geniş ekranda boyutu ayarlanabilen ve gizlenebilen filtre paneli. Kısa pencerelerde özet alanı sadeleşir, tabloya yer kalır.
+- **Okunabilir arayüz:** Görünüm menüsü veya alt çubuktan %75–150 arayüz büyüklüğü; büyüklük tercihi hatırlanır. Filtre ve dosya işlem düğmeleri sabit kalır, uzun formlar ve uyarılar kaydırılır. Yüksek çözünürlüklü ekranlarda Qt'nin DPI desteği kullanılır.
 
 Kaynak dosyanız doğrudan düzenlenmez. Değişiklikler çalışma belleğinde tutulur; sonucu ayrı bir dosyaya dışa aktarın. Dosyalarınız bir sunucuya yüklenmez.
 
@@ -65,6 +67,10 @@ Windows'ta sanal ortamı `py -3.12 -m venv .venv` ile de oluşturabilirsiniz. Ku
 3. İkinci koşulu ekleyin. `Şehir = İstanbul` ve tutar koşulunun birlikte sağlanması için **tümü**, ikisinden birinin yeterli olması için **herhangi biri** seçeneğini kullanın.
 4. Sonuç sayısını ve tablodaki değerleri kontrol edin. Sütun başlığıyla sıralayın; gerektiğinde filtreleri tek tek kaldırın.
 5. **Dışa aktar** ile formatı, sütunları ve kayıt konumunu seçin. Çıktı yalnızca ekrandaki birkaç satırı değil, filtre sonucunun tamamını içerir.
+
+Küçük pencerede **Filtreler** düğmesi filtre görünümünü açar; **Tabloya dön** ile sonuçlara geçilir. Geçerli bir filtre eklediğinizde sonuç tablosu kendiliğinden açılır. **Görünüm → Filtreleri göster/gizle** kısayolu `Ctrl/Cmd+Shift+F`; büyütme/küçültme `Ctrl/Cmd++` ve `Ctrl/Cmd+−`, varsayılan büyüklük `Ctrl/Cmd+0`.
+
+[800×600 dar görünüm](docs/screenshot-compact.png) · [Sabit filtre düğmesi](docs/screenshot-compact-filters.png) · [%150 arayüz büyüklüğü](docs/screenshot-zoom.png)
 
 ## Veri okuma ve çıktı davranışı
 
@@ -120,6 +126,7 @@ datadesk/
 ├── dialogs.py      # İçe/dışa aktarma ayarları
 ├── models.py       # Qt tablo modeli ve çalışma belgesi
 ├── theme.py        # Arayüz teması
+├── widgets.py      # Uzun bildirimler, erişilebilir kaydırma ve başlıklar
 ├── core.py         # Tip algılama, filtreleme ve sıralama
 └── io.py           # Dosya okuma ve atomik dışa aktarma
 tests/              # Veri motoru, dosya ve arayüz testleri
