@@ -52,6 +52,8 @@ Dar pencerede kenar çubuğu gizlenir; dosya görünümünden gezinme sürer. Fi
 
 Veriler belleğe yüklenir. Qt'nin sanal tablo modeli yalnızca görünen hücreleri çizse de bütün tablonun diskten akış halinde işlendiği anlamına gelmez. İşlenebilecek boyut, kullanılabilir belleğe ve dosya biçimine bağlıdır.
 
+Python 3.11 kaynak kurulumunda PySide6 6.12.0 dışlanır. Bu sürümün Python 3.10/3.11 sinyal kullanımında başvuru sayacı hatası Qt tarafından kaydedilmiştir; uygun diğer sürüm bağımlılık çözücüsüyle seçilir. Hazır kurucular Python 3.12 kullanır. [Qt hata kaydı PYSIDE-3474](https://qt-project.atlassian.net/browse/PYSIDE-3474).
+
 ## Otomatik doğrulama
 
 Testler gerçek dosyaları geçici klasörlerde üretir ve yeniden okur. Kaynaklar `tests/` altındadır; kapsamın ayrıntısı test kodundan ve çalışmanın raporundan okunmalıdır.

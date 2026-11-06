@@ -205,15 +205,40 @@ def test_successful_save_survives_manifest_permission_failure(qtbot, editor, mon
     source = working_table(qtbot, editor)
     document = editor.document
     original_replace = workspace_ui.os.replace
+    replacements = []
+    initial_identity = workspace_ui._identity(source)
+    assert editor.document.frame["Kod"].tolist() == ["0001"]
+    assert not editor.busy and not editor.tasks
+    assert editor._can_save_source(), {
+        "source": str(source),
+        "identity": initial_identity,
+        "managed": editor.workspace._managed,
+        "warning": editor.workspace.metadata_warning,
+    }
 
     def fail_metadata(source_path, destination_path):
+        replacements.append((str(source_path), str(destination_path)))
         if Path(destination_path).name == MANIFEST_NAME:
             raise PermissionError("metadata is read-only")
         return original_replace(source_path, destination_path)
 
     monkeypatch.setattr(workspace_ui.os, "replace", fail_metadata)
     editor.save_document()
+    assert editor.busy and editor.tasks, {
+        "errors": editor.test_errors,
+        "dirty": editor.dirty,
+        "identity": workspace_ui._identity(source),
+        "initial_identity": initial_identity,
+    }
     settle(qtbot, editor)
+    assert not editor.test_errors, {
+        "errors": editor.test_errors,
+        "replacements": replacements,
+        "status": editor.statusBar().currentMessage(),
+        "identity": workspace_ui._identity(source),
+        "initial_identity": initial_identity,
+    }
+    assert not editor.dirty, {"replacements": replacements, "status": editor.statusBar().currentMessage()}
     assert editor.document is document
     assert editor.source_path == source
     assert read_table(source).frame["Kod"].tolist() == ["0001"]
