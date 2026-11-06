@@ -54,7 +54,7 @@ def build(platform_name=None, output_dir=None):
         env=environment,
         check=True,
     )
-    application = output / ("DataDesk.app" if target == "macos" else "DataDesk" / "DataDesk.exe")
+    application = output / "DataDesk.app" if target == "macos" else output / "DataDesk" / "DataDesk.exe"
     if not application.exists():
         raise RuntimeError(f"The expected application was not built: {application}")
     print(application)
