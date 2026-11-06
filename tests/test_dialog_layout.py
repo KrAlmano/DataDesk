@@ -12,6 +12,24 @@ from datadesk.io import FileInfo, LoadedTable
 from datadesk.theme import STYLE, scaled_style
 
 
+@pytest.mark.parametrize("kind", ["import", "export"])
+def test_horizontal_section_caption_has_room_for_readable_words(qtbot, kind):
+    if kind == "import":
+        dialog = ImportDialog(
+            "Satışlar.xlsx", FileInfo(sheets=["Satışlar"]), LoadedTable(pd.DataFrame({"Kod": ["001"]}))
+        )
+        text = "VERİ ÖNİZLEMESİ · İLK 6 SATIR"
+    else:
+        dialog = ExportDialog(["Kod", "Tutar"], 100)
+        text = "ÇIKTIDAKİ SÜTUNLAR"
+    qtbot.addWidget(dialog)
+    dialog.show()
+    QApplication.processEvents()
+    caption = next(label for label in dialog.findChildren(QLabel) if label.text() == text)
+    assert caption.width() >= max(caption.fontMetrics().horizontalAdvance(word) for word in text.split())
+    assert caption.height() >= caption.fontMetrics().height()
+
+
 def test_confirmation_buttons_stack_before_their_text_is_clipped(qtbot):
     dialog = ExportDialog(["Kod", "Tutar"], 120)
     dialog.setStyleSheet(scaled_style(200))

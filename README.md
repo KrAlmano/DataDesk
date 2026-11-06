@@ -2,7 +2,18 @@
 
 Excel ve CSV dosyalarını açın, birkaç adımda filtreleyin ve ihtiyacınız olan sütunlarla temiz çıktılar alın. DataDesk, Türkçe arayüzü olan ve dosyalarınızı bilgisayarınızda işleyen bir masaüstü uygulamasıdır.
 
-![DataDesk çalışma alanı ve filtrelenmiş örnek tablo](docs/screenshot.png)
+[![Testler](https://github.com/KrAlmano/DataDesk/actions/workflows/tests.yml/badge.svg)](https://github.com/KrAlmano/DataDesk/actions/workflows/tests.yml)
+[![Masaüstü paketleri](https://github.com/KrAlmano/DataDesk/actions/workflows/desktop-packages.yml/badge.svg)](https://github.com/KrAlmano/DataDesk/actions/workflows/desktop-packages.yml)
+
+**[Uygulamayı indir](https://github.com/KrAlmano/DataDesk/releases/latest)** · **[Görsellerle kullanım kılavuzu](docs/KULLANIM.md)** · [macOS kurulumu](docs/MACOS.md) · [Windows kurulumu](docs/WINDOWS.md)
+
+[![DataDesk çalışma alanı ve filtrelenmiş örnek tablo](docs/screenshots/04-results.png)](docs/screenshots/04-results.png)
+
+1. İşletim sisteminize uygun kurucuyu indirip DataDesk'i açın. Python veya Excel gerekmez.
+2. Dosyanızı seçin, sayfa ve sütunları önizlemede kontrol edin; filtrelerinizi ekleyin.
+3. Sonucu, seçtiğiniz sütunlarla Excel veya CSV olarak kaydedin.
+
+Ekranlar gerçek uygulamadan alınmıştır; gösterilen satış kayıtları yapay örnek veridir.
 
 ## Neler yapabilirsiniz?
 
@@ -26,11 +37,11 @@ Kaynak dosyanız doğrudan düzenlenmez. Değişiklikler çalışma belleğinde 
 
 | Sistem | Kurulum dosyası | Kurulum |
 | --- | --- | --- |
-| macOS 14+, Apple Silicon (M serisi) | `DataDesk-1.0.0-macos-arm64.dmg` | DataDesk.app simgesini Applications klasörüne sürükleyin. |
-| macOS 14+, Intel | `DataDesk-1.0.0-macos-x86_64.dmg` | Intel paketini açıp DataDesk.app'i Applications'a sürükleyin. |
-| Windows 10 1809+ / Windows 11, x64 | `DataDesk-1.0.0-windows-x64-setup.exe` | Kurucuyu çalıştırın; Başlat menüsünden DataDesk'i açın. Yönetici yetkisi gerekmez. |
+| macOS 14+, Apple Silicon (M serisi) | [Mac M serisi kurucusu](https://github.com/KrAlmano/DataDesk/releases/download/v1.0.0/DataDesk-1.0.0-macos-arm64.dmg) | DataDesk.app simgesini Applications klasörüne sürükleyin. |
+| macOS 14+, Intel | [Mac Intel kurucusu](https://github.com/KrAlmano/DataDesk/releases/download/v1.0.0/DataDesk-1.0.0-macos-x86_64.dmg) | Intel paketini açıp DataDesk.app'i Applications'a sürükleyin. |
+| Windows 10 1809+ / Windows 11, x64 | [Windows kurucusu](https://github.com/KrAlmano/DataDesk/releases/download/v1.0.0/DataDesk-1.0.0-windows-x64-setup.exe) | Kurucuyu çalıştırın; Başlat menüsünden DataDesk'i açın. Yönetici yetkisi gerekmez. |
 
-Paketleri [Desktop packages](https://github.com/KrAlmano/DataDesk/actions/workflows/desktop-packages.yml) iş akışının son başarılı çalışmasındaki **Artifacts** bölümünden indirin. GitHub oturumu gerekebilir; ZIP olarak inen paketi önce çıkarın. Paketlerin yanında SHA-256 özeti ve kurulu uygulama test raporu bulunur. Apple Silicon, Intel ve Windows derlemeleri kendi işletim sistemi/mimarilerinde üretilip test edilir.
+Kalıcı indirmeler [GitHub Releases](https://github.com/KrAlmano/DataDesk/releases/latest) sayfasındadır. Paketlerin yanında SHA-256 özetleri bulunur. Apple Silicon, Intel ve Windows derlemeleri kendi işletim sistemi/mimarilerinde üretilip test edilir. Geliştirme derlemeleri ve test raporları ayrıca [Desktop packages](https://github.com/KrAlmano/DataDesk/actions/workflows/desktop-packages.yml) iş akışının **Artifacts** bölümünde tutulur.
 
 Kurulum, güncelleme, kaldırma ve ilk açılış ayrıntıları: [macOS](docs/MACOS.md) · [Windows](docs/WINDOWS.md). Mevcut geliştirme paketlerinde Apple Developer ID/noter onayı veya Windows yayıncı sertifikası sağlanmamıştır; ilk açılışta işletim sistemi onayı gerekebilir. İmzalama altyapısı macOS betiğinde isteğe bağlıdır.
 

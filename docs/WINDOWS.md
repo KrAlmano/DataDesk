@@ -4,16 +4,18 @@ DataDesk'in Windows ve macOS sürümleri aynı veri motorunu ve aynı arayüzü 
 
 ## Hazır paketle kurulum
 
-1. İlgili [GitHub derleme çalışmasının](https://github.com/KrAlmano/DataDesk/actions) **Artifacts** alanından Windows x64 kurulum paketini alın. Artifacts bir ZIP olarak indirilirse önce içeriğini çıkartın.
-2. `DataDesk-1.0.0-windows-x64-setup.exe` dosyasını açın. Yeni sürümlerde dosya adındaki sürüm numarası değişir.
+1. [En son DataDesk sürümünü](https://github.com/KrAlmano/DataDesk/releases/latest) açın. **Assets** bölümünden `DataDesk-1.0.0-windows-x64-setup.exe` dosyasını indirin. Yeni sürümlerde dosya adındaki sürüm numarası değişir.
+2. İndirdiğiniz kurulum dosyasını çift tıklayarak açın.
 3. Kurulum adımlarını izleyin. DataDesk varsayılan olarak kullanıcının `%LOCALAPPDATA%\Programs\DataDesk` dizinine kurulur; yönetici yetkisi istemez.
 4. İsterseniz masaüstü kısayolunu işaretleyin. Uygulamayı **Başlat → DataDesk** üzerinden açın.
 
 Kurulum dili Türkçe veya İngilizce seçilebilir. Uygulamanın veri çalışma alanı her iki işletim sisteminde de Türkçedir. Windows kısayollarında `Ctrl`, macOS kısayollarında `Cmd` kullanılır. Kurulum, Excel/CSV dosyalarının varsayılan açılış uygulamasını değiştirmez.
 
+Dosya açma, filtre ekleme ve sonuçları dışa aktarma adımları için [kullanım rehberini](KULLANIM.md) izleyin.
+
 Paket Windows **10 sürüm 1809 (derleme 17763) veya sonrası / Windows 11, x64** içindir. Bu alt sınır kullanılan Qt 6.12 sürümünün [Windows destek tablosuyla](https://doc.qt.io/qt-6.12/windows.html) eşleşir. Yerel ARM64 paketi yerine x64 paket hazırlanır; ARM cihazlar için doğal ARM64 desteği vaat edilmez.
 
-İmzalı bir dağıtım yayımlanmamışsa Windows yayımcı doğrulaması uygulamanın tanınmadığını gösterebilir. Paketin bu depodaki doğru sürümden geldiğini ve yayımlanan SHA-256 özetiyle eşleştiğini kontrol edin; işletim sisteminin güvenlik ayarlarını değiştirmek gerekmez.
+Bu sürüm Windows kod imzası taşımıyor; ilk çalıştırmada Windows tanınmayan yayımcı uyarısı gösterebilir. Dosyayı yukarıdaki resmi depo bağlantısından indirin ve SHA-256 özetini doğrulayın. Sistemin güvenlik ayarlarını kapatmayın.
 
 İndirilen dosyanın özetini PowerShell ile görmek için:
 
@@ -52,6 +54,8 @@ Sanal ortamı etkinleştirmek veya PowerShell'in kalıcı yürütme ilkesini de�
 ## Windows kurulum dosyasını üretme
 
 Bu adımlar Windows üzerinde uygulanır; Windows uygulaması macOS üzerinde çapraz derlenmez.
+
+Yayımlanmamış bir geliştirme derlemesi gerekiyorsa [GitHub Actions](https://github.com/KrAlmano/DataDesk/actions) üzerinde başarılı uygulama derlemesinin **Artifacts** alanını kullanın. Bu indirme ZIP olarak gelirse önce içeriğini çıkartın. Normal kullanıcı kurulumu için yukarıdaki **Releases** bağlantısını kullanın.
 
 Gerekenler: Git, uv ve [Inno Setup 6.4 veya sonrası](https://jrsoftware.org/isdl.php). Paylaşılan paketleyici Python ortamını ve uygulama dosyalarını hazırlar; Inno Setup bunları kullanıcıya özel kurulum dosyasına dönüştürür.
 

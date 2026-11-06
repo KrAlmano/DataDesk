@@ -4,7 +4,7 @@ Bu belge, önceki uygulamanın incelenmesinde bulunan somut sorunları ve yeni y
 
 ## 6 Kasım 2026 yerel doğrulaması
 
-- macOS, Python 3.12.13, pandas 3.1.1 ve PySide6-Essentials 6.12.0 ile **280 otomatik test** başarılı oldu.
+- macOS, Python 3.12.13, pandas 3.1.1 ve PySide6-Essentials 6.12.0 ile **283 otomatik test** başarılı oldu.
 - Ek olarak, macOS'un gerçek pencere sistemi (`cocoa`) ile başlatılan **59 arayüz/model/yerleşim testi** başarılı oldu. DPI benzetimleri kendi `offscreen` alt işlemlerinde çalışır. Örnek veriyle geniş/dar görünüm, filtre oluşturma ve %150 arayüz ekranları görsel olarak incelendi.
 - `tools/benchmark.py`, geçici bir dizinde **100.000 satır × 8 sütun** CSV oluşturup bağımsız hesaplanan **1.412 kaydı** filtreledi, sıraladı ve seçilen 6 sütunu Excel'e aktardı. Yeniden okunan bütün hücreler ve sıra, bağımsız beklenen sonuçla karşılaştırıldı. Kimliklerdeki sıfırlar, uzun kodlar, Türkçe karakterler ve çok satırlı metinler korundu.
 - Ruff ve `git diff --check` kontrolleri başarılı oldu. Bu sonuçlar yukarıdaki yerel ortam içindir; farklı işletim sistemleri için CI matrisi ayrıca çalışır.
@@ -28,6 +28,10 @@ PyInstaller uygulamaya Python/Qt ve dosya motorlarını dahil eder. macOS Apple 
 Yerel Apple Silicon derlemesinde DMG bütünlüğü ve ad hoc kod imzası doğrulandı; uygulama DMG'den boşluk içeren geçici bir klasöre kopyalandı. Bu kopyanın gömülü çalışma ortamında çok sayfalı Excel okuma, baştaki sıfırlar, filtreleme, sıralama, Excel/CSV/TSV/Word çıktısı, yeniden okuma, SVG/yazı tipi ve kaynak dosyanın değişmemesi kontrolleri başarılı oldu. Bu yerel paket Apple noter onaylı değildir.
 
 `Desktop packages` iş akışı her hedefi kendi mimarisinde derler. Windows testi gerçek kurulum, Başlat kısayolu, kurulu uygulama testi ve kaldırmayı; macOS testi DMG'den kopyalanmış uygulamayı denetler. Çalışmaların güncel sonucu ve kurucu dosyaları [GitHub Actions](https://github.com/KrAlmano/DataDesk/actions/workflows/desktop-packages.yml) üzerinden izlenir. Bir macOS derlemesi tek başına Windows veya Intel uyumluluğu kanıtı olarak sunulmaz.
+
+Görsel kullanım kılavuzu [KULLANIM.md](KULLANIM.md) içindedir. Yedi görüntü gerçek Qt pencereleri açılarak, geçici INI ayarları ve yapay örnek Excel ile alınır. Böylece kullanıcı tercihleri ve gerçek son açılan dosyalar çekimlere karışmaz. `tools/capture_screenshots.py --output-dir <klasör>` bu görüntüleri yeniden üretir.
+
+Sürüm yayımlamada `Desktop packages`, `release_tag` verilerek elle çalıştırılabilir. Yalnızca kaynak testleri, kurulu uygulama testi ve kurulum/kaldırma doğrulamasından geçen paketler mevcut taslak sürüme yüklenir. Taslak yayımlanmadan önce üç hedefin tamamı ve SHA-256 dosyaları kontrol edilir. Normal dal/PR çalışmaları sürüm dosyalarını değiştirmez.
 
 ## Önceki sürümde bulunan sorunlar
 

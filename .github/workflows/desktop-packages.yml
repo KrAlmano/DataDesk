@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing draft release to receive verified installers (optional)"
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -18,6 +24,8 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -73,6 +81,16 @@ jobs:
           ./packaging/windows/Test-Installer.ps1 -InstallerPath $installer -ReportDirectory build/windows-install-test
       - name: Capture shared desktop workspace
         run: uv run --extra dev --extra build python tools/capture_screenshots.py
+      - name: Upload verified installers to draft release
+        if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = "true"
+          gh release upload "$RELEASE_TAG" dist/installers/* --repo "$GITHUB_REPOSITORY" --clobber
       - name: Upload native installer and verification reports
         uses: actions/upload-artifact@v4
         with:

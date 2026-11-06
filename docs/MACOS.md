@@ -6,13 +6,15 @@ Hazır paket **macOS 14 (Sonoma) veya sonrası** içindir. Kullanılan kilitli Q
 
 ## Hazır paketi kurma
 
-1. [Desktop packages derlemesinin](https://github.com/KrAlmano/DataDesk/actions/workflows/desktop-packages.yml) son başarılı çalışmasının **Artifacts** bölümünden Mac'inize uygun paketi indirin ve ZIP içeriğini çıkarın. İndirme GitHub oturumu gerektirebilir:
+1. [DataDesk indirme sayfasından](https://github.com/KrAlmano/DataDesk/releases/latest) Mac'inize uygun paketi indirin:
    - Apple Silicon, M serisi: `DataDesk-<sürüm>-macos-arm64.dmg`
    - Intel: `DataDesk-<sürüm>-macos-x86_64.dmg`
 2. DMG dosyasını açın ve **DataDesk.app** simgesini **Applications** klasörüne sürükleyin.
 3. Kopyalama bitince disk görüntüsünü çıkarın ve **Applications → DataDesk** üzerinden başlatın.
 
 Uygulamayı kapatıp yeni sürümü aynı Applications klasörüne kopyalayarak güncelleyin. Uygulamayı kaldırmak için DataDesk.app dosyasını Çöp Sepeti'ne taşıyın. Excel/CSV dosyalarınız ve çıktılarınız uygulama paketinin dışında kalır.
+
+Kurulumdan sonra [görsellerle kullanım kılavuzunu](KULLANIM.md) izleyebilirsiniz. Geliştirme paketleri ve test raporları ayrıca [Desktop packages](https://github.com/KrAlmano/DataDesk/actions/workflows/desktop-packages.yml) çalışmasının Artifacts bölümündedir; buradan indirme GitHub oturumu gerektirebilir.
 
 ### İmza ve ilk açılış
 
