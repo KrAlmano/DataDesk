@@ -117,7 +117,7 @@ def render(output):
                 raise RuntimeError("The sample folders did not appear in the sidebar")
             time.sleep(0.02)
         settle(application)
-        capture(window, gallery / "01-start.png", output / "screenshot-empty.png")
+        capture(window, gallery / "01-start.png")
 
         source = sample_workbook(directory)
         copied = window.workspace.import_files([source], sales_folder)[0]
@@ -162,7 +162,7 @@ def render(output):
         settle(application)
         assert not window.rules
         assert len(window.model.frame) == 120
-        capture(window, gallery / "03-filter-builder.png", output / "screenshot-filters.png")
+        capture(window, gallery / "03-filter-builder.png")
 
         window.add_filter()
         settle(application, window)
@@ -175,7 +175,7 @@ def render(output):
         assert len(window.model.frame) == 37
         window.filter_tabs.setCurrentIndex(1)
         settle(application)
-        capture(window, gallery / "04-results.png", output / "screenshot.png")
+        capture(window, gallery / "04-results.png")
 
         exporter = ExportDialog(window.model.frame.columns, len(window.model.frame), parent=window)
         for position in range(exporter.columns.count()):
@@ -192,21 +192,10 @@ def render(output):
         window.resize(800, 600)
         window.set_zoom(100)
         settle(application)
-        capture(window, gallery / "06-compact.png", output / "screenshot-compact.png")
-        window.toggle_filters()
-        window.filter_tabs.setCurrentIndex(0)
-        window.column.setCurrentText("Tutar")
-        window.number_format.setCurrentIndex(window.number_format.findData("tr"))
-        window.operator.setCurrentIndex(window.operator.findData("between"))
-        window.value.setText("5.000,00")
-        window.value2.setText("20.000,00")
-        settle(application)
-        window.filter_scroll.verticalScrollBar().setValue(0)
-        capture(window, output / "screenshot-compact-filters.png")
-        window.toggle_filters()
+        capture(window, gallery / "06-compact.png")
         window.set_zoom(150)
         settle(application)
-        capture(window, gallery / "07-zoom.png", output / "screenshot-zoom.png")
+        capture(window, gallery / "07-zoom.png")
 
         # Capture the same loaded document after real preference changes. The
         # Turkish source headings/values remain unchanged in the English UI.

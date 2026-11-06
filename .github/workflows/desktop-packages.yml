@@ -99,8 +99,6 @@ jobs:
             dist/installers/*
             build/installed-macos-smoke.json
             build/windows-install-test/*
-            docs/screenshot.png
-            docs/screenshot-compact.png
             docs/screenshots/*.png
           if-no-files-found: error
           retention-days: 30
