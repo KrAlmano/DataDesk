@@ -24,3 +24,12 @@ Thumbs.db
 .env
 
 Excel_project/test_data/
+
+# Tests, quality tools and generated local artifacts
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+test-results/
+playwright-report/
