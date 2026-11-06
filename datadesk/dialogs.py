@@ -112,6 +112,16 @@ class ScrollableDialog(QDialog):
         if not hasattr(self, "_adaptive_rows"):
             return
         horizontal = self.width() >= max(600, self.fontMetrics().height() * 36)
+        if hasattr(self, "content"):
+            # Windows' field metrics can exceed a form's tentative column width.
+            # At large text sizes give each label/field its own full-width row.
+            policy = (
+                QFormLayout.RowWrapPolicy.DontWrapRows
+                if horizontal
+                else QFormLayout.RowWrapPolicy.WrapAllRows
+            )
+            for form in self.content.findChildren(QFormLayout):
+                form.setRowWrapPolicy(policy)
         direction = QBoxLayout.Direction.LeftToRight if horizontal else QBoxLayout.Direction.TopToBottom
         for row in self._adaptive_rows:
             row.setDirection(direction)

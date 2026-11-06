@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import platform
 import sys
+import sysconfig
 import tomllib
 from PyInstaller.utils.hooks import copy_metadata
 
@@ -16,6 +17,10 @@ icon = root / "build" / "icons" / ("datadesk.icns" if is_mac else "datadesk.ico"
 metadata = []
 for distribution in ("PySide6-Essentials", "shiboken6", "pandas", "numpy", "openpyxl", "xlrd", "python-docx", "lxml", "python-dateutil", "tzdata"):
     metadata += copy_metadata(distribution)
+for candidate in (Path(sys.base_prefix) / "LICENSE.txt", Path(sysconfig.get_path("stdlib")) / "LICENSE.txt"):
+    if candidate.is_file():
+        metadata.append((str(candidate), "licenses/python"))
+        break
 
 analysis = Analysis(
     [str(root / "main.py")],
