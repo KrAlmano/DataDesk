@@ -125,10 +125,21 @@ class ScrollableDialog(QDialog):
         direction = QBoxLayout.Direction.LeftToRight if horizontal else QBoxLayout.Direction.TopToBottom
         for row in self._adaptive_rows:
             row.setDirection(direction)
+        if hasattr(self, "buttons"):
+            visible_buttons = [button for button in self.buttons.buttons() if not button.isHidden()]
+            needed = sum(
+                max(button.sizeHint().width(), button.minimumSizeHint().width()) for button in visible_buttons
+            )
+            margins = self.shell.contentsMargins()
+            available = self.width() - margins.left() - margins.right()
+            orientation = Qt.Orientation.Horizontal if needed + 16 <= available else Qt.Orientation.Vertical
+            if self.buttons.orientation() != orientation:
+                self.buttons.setOrientation(orientation)
 
     def finish_with(self, buttons):
         self.buttons = buttons
         self.shell.addWidget(buttons)
+        self._reflow_rows()
 
 
 ENCODINGS = [

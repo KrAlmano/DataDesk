@@ -9,7 +9,23 @@ from PySide6.QtWidgets import QApplication, QDialogButtonBox, QLabel, QWidget
 
 from datadesk.dialogs import ExportDialog, ImportDialog, RowDialog
 from datadesk.io import FileInfo, LoadedTable
-from datadesk.theme import STYLE
+from datadesk.theme import STYLE, scaled_style
+
+
+def test_confirmation_buttons_stack_before_their_text_is_clipped(qtbot):
+    dialog = ExportDialog(["Kod", "Tutar"], 120)
+    dialog.setStyleSheet(scaled_style(200))
+    qtbot.addWidget(dialog)
+    dialog.show()
+    QApplication.processEvents()
+    buttons = dialog.buttons.buttons()
+    required = max(button.minimumSizeHint().width() for button in buttons)
+    dialog.resize(required + 60, 480)
+    QApplication.processEvents()
+    assert dialog.buttons.orientation() == Qt.Orientation.Vertical
+    for button in buttons:
+        assert button.width() >= button.minimumSizeHint().width()
+        assert dialog.rect().contains(QRect(button.mapTo(dialog, QPoint()), button.size()))
 
 
 def magnified_style(scale):
