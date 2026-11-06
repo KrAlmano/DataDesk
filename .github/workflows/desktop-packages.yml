@@ -1,0 +1,98 @@
+name: Desktop packages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-package:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS Apple Silicon
+            runner: macos-15
+            platform: macos
+            arch: arm64
+          - name: macOS Intel
+            runner: macos-15-intel
+            platform: macos
+            arch: x86_64
+          - name: Windows x64
+            runner: windows-2022
+            platform: windows
+            arch: x64
+    env:
+      QT_QPA_PLATFORM: offscreen
+      UV_PYTHON: "3.12"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Prepare reproducible native environment
+        run: |
+          python -m pip install uv
+          uv sync --locked --extra dev --extra build
+      - name: Check source and shared interface
+        run: |
+          uv run --extra dev --extra build ruff check .
+          uv run --extra dev --extra build ruff format --check .
+          uv run --extra dev --extra build pytest -q
+      - name: Build native application
+        run: uv run --extra dev --extra build python tools/build_app.py --platform ${{ matrix.platform }}
+      - name: Package macOS disk image
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: bash packaging/macos/build.sh --skip-build --arch ${{ matrix.arch }}
+      - name: Install from disk image and verify packaged application
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: bash packaging/macos/verify.sh dist/installers/*.dmg build/installed-macos-smoke.json
+      - name: Build Windows installer
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: ./packaging/windows/Build-Installer.ps1 -SkipBundle
+      - name: Install, exercise and uninstall Windows application
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $installer = (Get-ChildItem dist/installers/*-setup.exe | Select-Object -First 1).FullName
+          ./packaging/windows/Test-Installer.ps1 -InstallerPath $installer -ReportDirectory build/windows-install-test
+      - name: Capture shared desktop workspace
+        run: uv run --extra dev --extra build python tools/capture_screenshots.py
+      - name: Upload native installer and verification reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: DataDesk-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            dist/installers/*
+            build/installed-macos-smoke.json
+            build/windows-install-test/*
+            docs/screenshot.png
+            docs/screenshot-compact.png
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve failure details
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Failure-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            build/installed-macos-smoke.json
+            build/windows-install-test/*
+            build/pyinstaller/DataDesk/warn-DataDesk.txt
+          if-no-files-found: ignore
+          retention-days: 7

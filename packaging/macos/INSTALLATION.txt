@@ -1,0 +1,20 @@
+DataDesk — macOS kurulumu
+
+1. Bu disk görüntüsündeki DataDesk uygulamasını Applications klasörüne sürükleyin.
+2. Kopyalama tamamlandıktan sonra disk görüntüsünü çıkarın.
+3. Applications klasöründeki DataDesk uygulamasını açın.
+
+Python veya Microsoft Excel kurmanız gerekmez. Dosyalar cihazınızda işlenir.
+Bu paket macOS 14 (Sonoma) veya daha yeni bir macOS sürümü gerektirir.
+Kaynak Excel/CSV dosyaları değiştirilmez; sonuçları ayrı dosyaya dışa aktarın.
+
+Apple Silicon (M serisi) Mac için arm64; Intel Mac için x86_64 paketini kullanın.
+Bu paketi yalnızca DataDesk'in resmi GitHub deposundan indirin:
+https://github.com/KrAlmano/DataDesk
+
+Geliştirme paketleri Apple tarafından noter onayından geçirilmiş olmayabilir.
+macOS paketi doğrulayamıyorsa imzalama durumunu sürüm notlarından kontrol edin.
+Güvenlik kontrollerini kapatan terminal komutları kullanmayın.
+
+Kaldırma: DataDesk uygulamasını Applications klasöründen Çöp Sepeti'ne taşıyın.
+Bu işlem açtığınız Excel/CSV dosyalarını veya dışa aktardığınız raporları silmez.

@@ -42,6 +42,7 @@ from .io import ImportOptions, inspect_file, read_table, write_table
 from .models import Document, TableModel
 from .theme import scaled_style
 from .widgets import ControlScrollArea, ElidedLabel, Notice
+from .platforms import default_export_directory, shortcut_label
 
 
 OPERATORS = [
@@ -103,12 +104,12 @@ class Task(QRunnable):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, settings=None):
         super().__init__()
         self.setWindowTitle("DataDesk")
         self.setMinimumSize(720, 480)
         self.setAcceptDrops(True)
-        self.settings = QSettings("DataDesk", "DataDesk")
+        self.settings = settings if settings is not None else QSettings("DataDesk", "DataDesk")
         try:
             self.zoom_percent = max(75, min(150, int(self.settings.value("ui_zoom", 100))))
         except (ValueError, TypeError):
@@ -183,7 +184,7 @@ class MainWindow(QMainWindow):
         self.sidebar_subtitle = subtitle
         side_layout.addWidget(subtitle)
         self.open_button = button("＋  Dosya aç", self.open_file, "primary")
-        self.open_button.setToolTip("Excel, CSV veya TSV aç · Ctrl/Cmd+O")
+        self.open_button.setToolTip("Excel, CSV veya TSV aç · " + shortcut_label("Ctrl+O"))
         self.open_button.setAccessibleName("Dosya aç")
         side_layout.addWidget(self.open_button)
         self.demo_button = button("▦  Örnek veriyi keşfet", self.open_demo)
@@ -241,7 +242,7 @@ class MainWindow(QMainWindow):
         self.filter_toggle = button("Filtreler", self.toggle_filters, "filterToggle")
         self.filter_toggle.setCheckable(True)
         self.filter_toggle.setAccessibleName("Filtre panelini göster veya gizle")
-        self.filter_toggle.setToolTip("Filtre panelini aç/kapat · Ctrl/Cmd+Shift+F")
+        self.filter_toggle.setToolTip("Filtre panelini aç/kapat · " + shortcut_label("Ctrl+Shift+F"))
         heading.addWidget(self.filter_toggle)
         self.export_button = button("Dışa aktar  ↗", self.export_file, "primary")
         self.export_button.setMinimumHeight(40)
@@ -431,14 +432,14 @@ class MainWindow(QMainWindow):
         row.setSpacing(2)
         self.zoom_out = QToolButton()
         self.zoom_out.setText("−")
-        self.zoom_out.setToolTip("Arayüzü küçült · Ctrl/Cmd+−")
+        self.zoom_out.setToolTip("Arayüzü küçült · " + shortcut_label("Ctrl+−"))
         self.zoom_out.clicked.connect(lambda: self.set_zoom(self.zoom_percent - 25))
         self.zoom_label = QToolButton()
         self.zoom_label.setToolTip("Arayüz büyüklüğünü %100'e döndür")
         self.zoom_label.clicked.connect(lambda: self.set_zoom(100))
         self.zoom_in = QToolButton()
         self.zoom_in.setText("＋")
-        self.zoom_in.setToolTip("Arayüzü büyüt · Ctrl/Cmd++")
+        self.zoom_in.setToolTip("Arayüzü büyüt · " + shortcut_label("Ctrl++"))
         self.zoom_in.clicked.connect(lambda: self.set_zoom(self.zoom_percent + 25))
         for widget in (self.zoom_out, self.zoom_label, self.zoom_in):
             row.addWidget(widget)
@@ -555,9 +556,9 @@ class MainWindow(QMainWindow):
         self.delete_button.setToolTip("Seçili satırları çalışma verisinden sil")
         self.delete_button.setAccessibleName("Seçili satırları sil")
         self.undo_button = button("↶", self.undo)
-        self.undo_button.setToolTip("Düzenlemeyi geri al · Ctrl/Cmd+Z (son 10 işlem)")
+        self.undo_button.setToolTip("Düzenlemeyi geri al · " + shortcut_label("Ctrl+Z") + " (son 10 işlem)")
         self.redo_button = button("↷", self.redo)
-        self.redo_button.setToolTip("Düzenlemeyi yinele · Ctrl/Cmd+Shift+Z")
+        self.redo_button.setToolTip("Düzenlemeyi yinele · " + shortcut_label("Ctrl+Shift+Z"))
         actions.addWidget(self.add_button)
         actions.addWidget(self.delete_button)
         actions.addStretch()
@@ -1305,7 +1306,7 @@ class MainWindow(QMainWindow):
             return
         extension = dialog.format.currentData()
         base = self.source_path.stem if self.source_path else "DataDesk"
-        directory = self.settings.value("export_directory", str(Path.home() / "Desktop"))
+        directory = self.settings.value("export_directory", str(default_export_directory()))
         path, _ = QFileDialog.getSaveFileName(
             self,
             "DataDesk · Çıktıyı kaydet",

@@ -1,0 +1,26 @@
+DataDesk
+Source: https://github.com/KrAlmano/DataDesk
+Application license: MIT (see LICENSE).
+
+This distribution includes independent third-party components. Their own
+licenses continue to apply; they are not relicensed under DataDesk's MIT license.
+
+Python: https://www.python.org/ (PSF license)
+Qt for Python / PySide6 / Shiboken6: https://www.qt.io/qt-for-python
+Qt: https://www.qt.io/licensing/ and https://code.qt.io/
+pandas: https://pandas.pydata.org/
+NumPy: https://numpy.org/
+openpyxl: https://openpyxl.readthedocs.io/
+xlrd: https://xlrd.readthedocs.io/
+python-docx: https://python-docx.readthedocs.io/
+lxml: https://lxml.de/
+python-dateutil: https://dateutil.readthedocs.io/
+tzdata: https://pypi.org/project/tzdata/
+
+Package metadata and bundled license files are included beside the application
+libraries. These are in the .app Resources/Frameworks directories on macOS and
+the _internal directory on Windows. The runtime libraries are dynamically linked.
+
+The unmodified Inter font is included under the SIL Open Font License 1.1.
+Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter).
+Its full notice and license are in datadesk/assets/fonts/OFL.txt.

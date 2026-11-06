@@ -20,6 +20,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+build = [
+    "pyinstaller>=6.19,<7",
+    "Pillow>=11,<13",
+]
 dev = [
     "pytest>=8,<10",
     "pytest-qt>=4.4,<5",
@@ -38,7 +42,7 @@ Issues = "https://github.com/KrAlmano/DataDesk/issues"
 include = ["datadesk*"]
 
 [tool.setuptools.package-data]
-datadesk = ["assets/*.svg"]
+datadesk = ["assets/*.svg", "assets/fonts/*.ttf", "assets/fonts/*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

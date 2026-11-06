@@ -20,9 +20,23 @@ Kaynak dosyanız doğrudan düzenlenmez. Değişiklikler çalışma belleğinde 
 
 ## Kurulum ve çalıştırma
 
-Python **3.11–3.14** gerekir. Geliştirmede Python 3.12 kullanılır.
+### Hazır uygulama: macOS ve Windows
 
-### uv ile
+İki paket aynı DataDesk arayüzünü, Inter yazı tipini ve veri motorunu kullanır. Hazır kurulumda **Python, uv veya Microsoft Excel gerekmez**.
+
+| Sistem | Kurulum dosyası | Kurulum |
+| --- | --- | --- |
+| macOS 14+, Apple Silicon (M serisi) | `DataDesk-1.0.0-macos-arm64.dmg` | DataDesk.app simgesini Applications klasörüne sürükleyin. |
+| macOS 14+, Intel | `DataDesk-1.0.0-macos-x86_64.dmg` | Intel paketini açıp DataDesk.app'i Applications'a sürükleyin. |
+| Windows 10 1809+ / Windows 11, x64 | `DataDesk-1.0.0-windows-x64-setup.exe` | Kurucuyu çalıştırın; Başlat menüsünden DataDesk'i açın. Yönetici yetkisi gerekmez. |
+
+Paketleri [Desktop packages](https://github.com/KrAlmano/DataDesk/actions/workflows/desktop-packages.yml) iş akışının son başarılı çalışmasındaki **Artifacts** bölümünden indirin. GitHub oturumu gerekebilir; ZIP olarak inen paketi önce çıkarın. Paketlerin yanında SHA-256 özeti ve kurulu uygulama test raporu bulunur. Apple Silicon, Intel ve Windows derlemeleri kendi işletim sistemi/mimarilerinde üretilip test edilir.
+
+Kurulum, güncelleme, kaldırma ve ilk açılış ayrıntıları: [macOS](docs/MACOS.md) · [Windows](docs/WINDOWS.md). Mevcut geliştirme paketlerinde Apple Developer ID/noter onayı veya Windows yayıncı sertifikası sağlanmamıştır; ilk açılışta işletim sistemi onayı gerekebilir. İmzalama altyapısı macOS betiğinde isteğe bağlıdır.
+
+### Kaynak koddan çalıştırma: uv
+
+Geliştirme için Python **3.11–3.14** desteklenir; paketler Python 3.12 ile üretilir.
 
 [uv](https://docs.astral.sh/uv/) kuruluysa:
 
@@ -34,7 +48,7 @@ uv run datadesk
 
 `uv`, proje için gereken Python ortamını ve bağımlılıkları hazırlar.
 
-### pip ile
+### Kaynak koddan çalıştırma: pip
 
 ```bash
 git clone https://github.com/KrAlmano/DataDesk.git
@@ -59,6 +73,23 @@ python -m datadesk
 ```
 
 Windows'ta sanal ortamı `py -3.12 -m venv .venv` ile de oluşturabilirsiniz. Kurulumdan sonra `datadesk`, `python main.py` ve eski `python Excel_project/main.py` girişleri aynı uygulamayı açar.
+
+### Yerel kurulum paketi üretme
+
+macOS üzerinde:
+
+```bash
+uv sync --extra build
+bash packaging/macos/build.sh
+```
+
+Windows üzerinde, uv ve Inno Setup 6.4+ kurulu iken:
+
+```powershell
+pwsh -File packaging/windows/Build-Installer.ps1
+```
+
+Çıktılar `dist/installers/` altındadır. Her derleme gömülü Python/Qt çalışma ortamını taşır. Kullanıcı dosyaları uygulama kurulumunun içine alınmaz; kaldırma işlemi kaynak tabloları ve dışa aktarılan dosyaları silmez.
 
 ## İlk dosyanızı filtreleyin
 
@@ -113,7 +144,7 @@ python -m ruff check .
 QT_QPA_PLATFORM=offscreen python -m pytest -q
 ```
 
-PowerShell'de testten önce `$env:QT_QPA_PLATFORM = "offscreen"` kullanın. Ekran açıkken test etmek için bu değişkeni kaldırabilirsiniz. GitHub Actions, Linux üzerinde Python 3.11–3.14 için aynı kontrolleri çalıştırır.
+PowerShell'de testten önce `$env:QT_QPA_PLATFORM = "offscreen"` kullanın. Ekran açıkken test etmek için bu değişkeni kaldırabilirsiniz. GitHub Actions Linux üzerinde Python 3.11–3.14 testlerini; ayrıca macOS Apple Silicon, macOS Intel ve Windows x64 üzerinde kaynak testlerini, yerel derlemeyi ve kurulu uygulama doğrulamasını çalıştırır. Windows'ta gerçek kurulum/kaldırma; macOS'ta DMG'den geçici klasöre kopyalama test edilir.
 
 Testler geçici dizinlerde ürettikleri gerçek Excel/CSV dosyalarını yeniden açarak veri, sütun sırası ve filtre sonuçlarını denetler. Arayüz testleri Qt olay döngüsüyle çalışır. İnceleme notları ve elle kontrol senaryoları: [Teknik inceleme](docs/TEKNIK_INCELEME.md).
 
@@ -127,13 +158,16 @@ datadesk/
 ├── models.py       # Qt tablo modeli ve çalışma belgesi
 ├── theme.py        # Arayüz teması
 ├── widgets.py      # Uzun bildirimler, erişilebilir kaydırma ve başlıklar
+├── platforms.py    # Mac/Windows başlatma, kısayol ve sistem klasörleri
+├── smoke.py        # Kurulu uygulamanın gerçek dosyalarla kabul testi
 ├── core.py         # Tip algılama, filtreleme ve sıralama
 └── io.py           # Dosya okuma ve atomik dışa aktarma
 tests/              # Veri motoru, dosya ve arayüz testleri
 docs/               # İnceleme notları
+packaging/          # Ortak paketleyici, ayrı macOS/Windows kurucuları
 Excel_project/main.py  # Eski çalıştırma yoluna uyumluluk
 ```
 
 ## Lisans
 
-[MIT](LICENSE).
+DataDesk: [MIT](LICENSE). Gömülü Inter yazı tipi: [SIL Open Font License](datadesk/assets/fonts/OFL.txt). Dağıtım içindeki bağımsız bileşenlerin kendi lisansları geçerlidir: [bileşen notları](packaging/THIRD_PARTY_NOTICES.txt).

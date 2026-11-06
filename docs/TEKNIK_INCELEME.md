@@ -4,7 +4,7 @@ Bu belge, önceki uygulamanın incelenmesinde bulunan somut sorunları ve yeni y
 
 ## 6 Kasım 2026 yerel doğrulaması
 
-- macOS, Python 3.12.13, pandas 3.1.1 ve PySide6-Essentials 6.12.0 ile **259 otomatik test** başarılı oldu.
+- macOS, Python 3.12.13, pandas 3.1.1 ve PySide6-Essentials 6.12.0 ile **280 otomatik test** başarılı oldu.
 - Ek olarak, macOS'un gerçek pencere sistemi (`cocoa`) ile başlatılan **59 arayüz/model/yerleşim testi** başarılı oldu. DPI benzetimleri kendi `offscreen` alt işlemlerinde çalışır. Örnek veriyle geniş/dar görünüm, filtre oluşturma ve %150 arayüz ekranları görsel olarak incelendi.
 - `tools/benchmark.py`, geçici bir dizinde **100.000 satır × 8 sütun** CSV oluşturup bağımsız hesaplanan **1.412 kaydı** filtreledi, sıraladı ve seçilen 6 sütunu Excel'e aktardı. Yeniden okunan bütün hücreler ve sıra, bağımsız beklenen sonuçla karşılaştırıldı. Kimliklerdeki sıfırlar, uzun kodlar, Türkçe karakterler ve çok satırlı metinler korundu.
 - Ruff ve `git diff --check` kontrolleri başarılı oldu. Bu sonuçlar yukarıdaki yerel ortam içindir; farklı işletim sistemleri için CI matrisi ayrıca çalışır.
@@ -18,6 +18,16 @@ Tekrarlama: `QT_QPA_PLATFORM=offscreen uv run --extra dev pytest -q`, `uv run py
 - 20 yerleşim senaryosu; arama, çıktı ve satır düğmelerinin erişimi, sabit filtre düğmeleri, hatalı aralık mesajı, klavyeyle alanlar arası geçiş, uzun sütun/dosya adları ve uzun uyarılar sırasında tablo alanının korunmasını denetler. Boyut veya büyüklük değişimi kaynak veriyi, filtreleri ve sıralanmış sonuçları değiştirmez.
 - 15 dosya penceresi senaryosu; 640×480 boyutunda %100–200 tipografi, uzun başlık/uyarı, 35 alan ve son işlem düğmelerinin erişimini denetler.
 - Destekleyici metinlerin kontrastı güçlendirildi, açılır listelere belirgin oklar eklendi; dosya başlığı sığmadığında ortadan kısaltılır ve tam ad ipucunda korunur.
+
+### macOS ve Windows paketleri
+
+Tek arayüz, ortak Fusion teması ve gömülü Inter yazı tipi kullanılır. `platforms.py`, macOS dosya açma olaylarını, platforma uygun kısayol adlarını ve Windows görev çubuğu kimliğini yönetir. Çıktı klasörü Qt'nin sistem klasörlerinden alınır; OneDrive'a yönlendirilmiş Windows masaüstü için `~/Desktop` varsayılmaz.
+
+PyInstaller uygulamaya Python/Qt ve dosya motorlarını dahil eder. macOS Apple Silicon ve Intel için ayrı `.app`/DMG; Windows x64 için kullanıcıya özel Inno Setup kurucusu üretilir. macOS paketinin alt sınırı kilitli Qt ikilileri nedeniyle macOS 14'tür; Windows kurucusu Windows 10 1809+ ister.
+
+Yerel Apple Silicon derlemesinde DMG bütünlüğü ve ad hoc kod imzası doğrulandı; uygulama DMG'den boşluk içeren geçici bir klasöre kopyalandı. Bu kopyanın gömülü çalışma ortamında çok sayfalı Excel okuma, baştaki sıfırlar, filtreleme, sıralama, Excel/CSV/TSV/Word çıktısı, yeniden okuma, SVG/yazı tipi ve kaynak dosyanın değişmemesi kontrolleri başarılı oldu. Bu yerel paket Apple noter onaylı değildir.
+
+`Desktop packages` iş akışı her hedefi kendi mimarisinde derler. Windows testi gerçek kurulum, Başlat kısayolu, kurulu uygulama testi ve kaldırmayı; macOS testi DMG'den kopyalanmış uygulamayı denetler. Çalışmaların güncel sonucu ve kurucu dosyaları [GitHub Actions](https://github.com/KrAlmano/DataDesk/actions/workflows/desktop-packages.yml) üzerinden izlenir. Bir macOS derlemesi tek başına Windows veya Intel uyumluluğu kanıtı olarak sunulmaz.
 
 ## Önceki sürümde bulunan sorunlar
 
