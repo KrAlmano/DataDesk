@@ -7,18 +7,20 @@ import sys
 import tempfile
 import time
 
-from PySide6.QtCore import QSettings
+from PySide6.QtCore import QLibraryInfo, QSettings
 from PySide6.QtGui import QIcon
 
 
 def run_smoke_test(app):
     from docx import Document as WordDocument
     from openpyxl import Workbook
+    import pandas as pd
     import xlrd
 
     from . import __version__
     from .core import FilterRule
     from .io import ExportOptions, ImportOptions, inspect_file, read_table
+    from .i18n import language
     from .ui import MainWindow
     from .workspace import Workspace
 
@@ -66,10 +68,17 @@ def run_smoke_test(app):
                 f"The shared macOS/Windows font is missing (file_exists={(assets / 'fonts' / 'Inter.ttf').is_file()}, family={app.font().family()!r}, assets={assets})."
             )
         checks.append("same_bundled_inter_font_on_both_platforms")
-        for name in ("icon.svg", "chevron.svg"):
+        for name in ("icon.svg", "chevron.svg", "chevron-dark.svg"):
             if QIcon(str(assets / name)).isNull():
                 raise AssertionError(f"Packaged SVG asset could not be loaded: {name}")
         checks.append("native_qt_plugins_and_svg_assets")
+        for code in ("tr", "en"):
+            catalog = assets / "qt" / f"qtbase_{code}.qm"
+            if not getattr(sys, "frozen", False) and not catalog.is_file():
+                catalog = Path(QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)) / catalog.name
+            if not catalog.is_file():
+                raise AssertionError(f"The Qt translation catalog is missing: {catalog}")
+        checks.append("qt_turkish_and_english_translation_catalogs")
         window = MainWindow(
             settings=QSettings(str(directory / "settings.ini"), QSettings.Format.IniFormat),
             workspace_root=directory / "workspace",
@@ -140,6 +149,67 @@ def run_smoke_test(app):
             wait_for(window)
             if window.model.frame["Kod"].tolist() != ["0002"]:
                 raise AssertionError("The new working table could not be filtered.")
+            window.search.setText("0002")
+            wait_for(window)
+            document = window.document
+            source_frame = document.frame.copy(deep=True)
+            visible_frame = window.model.frame.copy(deep=True)
+            view_state = (list(window.rules), window.match, window.sort_column, window.sort_ascending)
+            history_size = len(document.history)
+            if not window.dirty:
+                raise AssertionError("The language-switch check needs unsaved edits.")
+
+            def assert_live_state(code, theme):
+                if not window.apply_preferences(language=code, theme=theme, zoom=100):
+                    raise AssertionError(f"The installed application rejected {code}/{theme} preferences.")
+                wait_for(window)
+                if language() != code or app.property("datadeskTheme") != theme:
+                    raise AssertionError("The installed language or theme did not change immediately.")
+                if not getattr(app, "_datadesk_translation_loaded", False):
+                    raise AssertionError(f"The installed Qt {code} translation did not load.")
+                if (
+                    window.document is not document
+                    or not window.dirty
+                    or len(document.history) != history_size
+                ):
+                    raise AssertionError("Changing language/theme reset unsaved edits or undo history.")
+                pd.testing.assert_frame_equal(window.document.frame, source_frame)
+                pd.testing.assert_frame_equal(window.model.frame, visible_frame)
+                current_view = (window.rules, window.match, window.sort_column, window.sort_ascending)
+                if (
+                    current_view != view_state
+                    or window.search.text() != "0002"
+                    or window.source_path != working
+                ):
+                    raise AssertionError("Changing language/theme reset the filter, search or source file.")
+                window.settings.sync()
+                saved = QSettings(window.settings.fileName(), QSettings.Format.IniFormat)
+                if saved.value("ui_language") != code or saved.value("ui_theme") != theme:
+                    raise AssertionError("Language/theme preferences were not persisted.")
+
+            assert_live_state("en", "dark")
+            if window.files_button.text() != "Files" or "Search" not in window.search.placeholderText():
+                raise AssertionError("The installed editor still has Turkish controls in English mode.")
+            if "chevron-dark.svg" not in window.styleSheet():
+                raise AssertionError("The installed dark theme is missing its control icon.")
+            checks.append("english_dark_mode_preserves_unsaved_table_and_filters")
+            restored = MainWindow(
+                settings=QSettings(window.settings.fileName(), QSettings.Format.IniFormat),
+                workspace_root=window.workspace.root,
+            )
+            try:
+                if language() != "en" or app.property("datadeskTheme") != "dark":
+                    raise AssertionError("The installed application did not restore saved preferences.")
+                if restored.files_button.text() != "Files":
+                    raise AssertionError("Saved English preferences were not applied during startup.")
+            finally:
+                restored.close()
+                app.processEvents()
+            checks.append("saved_language_and_theme_restored_on_reopen")
+            assert_live_state("tr", "light")
+            if window.files_button.text() != "Dosyalar" or "ara" not in window.search.placeholderText():
+                raise AssertionError("The installed editor did not return to Turkish controls.")
+            checks.append("turkish_light_mode_restored_without_data_loss")
             window.save_document()
             wait_for(window)
             if window.dirty or read_table(working).frame["Kod"].tolist() != ["0001", "0002", "0003"]:

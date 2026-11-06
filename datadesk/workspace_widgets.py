@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLayout,
     QLineEdit,
     QMenu,
     QPushButton,
@@ -23,6 +24,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .i18n import language, tr
+from . import translations_workspace as _translations_workspace  # noqa: F401
 from .widgets import ElidedLabel
 
 
@@ -41,9 +44,13 @@ SORT_ROLE = Qt.ItemDataRole.UserRole + 1
 def _size_label(size):
     if size < 1024:
         return f"{size} B"
-    if size < 1024**2:
-        return f"{size / 1024:.1f} KB".replace(".", ",")
-    return f"{size / 1024**2:.1f} MB".replace(".", ",")
+    formatted = f"{size / 1024:.1f} KB" if size < 1024**2 else f"{size / 1024**2:.1f} MB"
+    return formatted.replace(".", ",") if language() == "tr" else formatted
+
+
+def _modified_label(timestamp):
+    pattern = "%d.%m.%Y %H:%M" if language() == "tr" else "%Y-%m-%d %H:%M"
+    return datetime.fromtimestamp(timestamp).strftime(pattern)
 
 
 class FileItem(QTreeWidgetItem):
@@ -94,25 +101,28 @@ class WorkspaceBrowser(QWidget):
 
     def _build(self):
         layout = QVBoxLayout(self)
+        # Let resizeEvent choose which toolbar actions fit before a previous
+        # font size can impose a stale minimum width on the whole browser.
+        layout.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
 
         navigation = QHBoxLayout()
         navigation.setSpacing(6)
-        self.back_button = self._navigation_button("Önceki klasör", QStyle.StandardPixmap.SP_ArrowBack)
+        self.back_button = self._navigation_button(tr("Önceki klasör"), "←")
         self.back_button.clicked.connect(self.go_back)
         navigation.addWidget(self.back_button)
-        self.up_button = self._navigation_button("Üst klasör", QStyle.StandardPixmap.SP_ArrowUp)
+        self.up_button = self._navigation_button(tr("Üst klasör"), "↑")
         self.up_button.clicked.connect(self.go_up)
         navigation.addWidget(self.up_button)
         self.breadcrumb = QLineEdit()
         self.breadcrumb.setObjectName("breadcrumb")
         self.breadcrumb.setReadOnly(True)
-        self.breadcrumb.setAccessibleName("Geçerli klasörün yolu")
-        self.breadcrumb.setPlaceholderText("Çalışma klasörü")
+        self.breadcrumb.setAccessibleName(tr("Geçerli klasörün yolu"))
+        self.breadcrumb.setPlaceholderText(tr("Çalışma klasörü"))
         self.breadcrumb.setMinimumWidth(0)
         navigation.addWidget(self.breadcrumb, 1)
-        self.refresh_button = self._navigation_button("Yenile", QStyle.StandardPixmap.SP_BrowserReload)
+        self.refresh_button = self._navigation_button(tr("Yenile"), "↻")
         self.refresh_button.clicked.connect(self.refresh)
         navigation.addWidget(self.refresh_button)
         layout.addLayout(navigation)
@@ -122,35 +132,35 @@ class WorkspaceBrowser(QWidget):
         toolbar = QHBoxLayout(self.toolbar_widget)
         toolbar.setContentsMargins(0, 0, 0, 0)
         toolbar.setSpacing(6)
-        self.folder_title = ElidedLabel("Dosyalar")
+        self.folder_title = ElidedLabel(tr("Dosyalar"))
         self.folder_title.setObjectName("folderTitle")
         self.folder_title.setTextFormat(Qt.TextFormat.PlainText)
         self.folder_title.setMinimumWidth(0)
         self.folder_title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         toolbar.addWidget(self.folder_title, 1)
-        self.new_file_button = QPushButton("Yeni dosya")
+        self.new_file_button = QPushButton(tr("Yeni dosya"))
         self.new_file_button.clicked.connect(self._new_file)
         toolbar.addWidget(self.new_file_button)
-        self.new_folder_button = QPushButton("Yeni klasör")
+        self.new_folder_button = QPushButton(tr("Yeni klasör"))
         self.new_folder_button.clicked.connect(self._new_folder)
         toolbar.addWidget(self.new_folder_button)
-        self.import_button = QPushButton("İçe aktar")
+        self.import_button = QPushButton(tr("İçe aktar"))
         self.import_button.clicked.connect(self._import)
         toolbar.addWidget(self.import_button)
         self.more_button = QToolButton()
         self.more_button.setText("⋯")
-        self.more_button.setAccessibleName("Dosya ve klasör işlemleri")
-        self.more_button.setToolTip("Dosya ve klasör işlemleri")
+        self.more_button.setAccessibleName(tr("Dosya ve klasör işlemleri"))
+        self.more_button.setToolTip(tr("Dosya ve klasör işlemleri"))
         self.more_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.more_menu = QMenu(self.more_button)
-        self.new_file_action = self.more_menu.addAction("Yeni dosya…", self._new_file)
-        self.new_folder_action = self.more_menu.addAction("Yeni klasör…", self._new_folder)
-        self.import_action = self.more_menu.addAction("İçe aktar…", self._import)
+        self.new_file_action = self.more_menu.addAction(tr("Yeni dosya…"), self._new_file)
+        self.new_folder_action = self.more_menu.addAction(tr("Yeni klasör…"), self._new_folder)
+        self.import_action = self.more_menu.addAction(tr("İçe aktar…"), self._import)
         self.more_menu.addSeparator()
-        self.rename_action = self.more_menu.addAction("Yeniden adlandır…", self._rename)
-        self.move_action = self.more_menu.addAction("Taşı…", self._move)
+        self.rename_action = self.more_menu.addAction(tr("Yeniden adlandır…"), self._rename)
+        self.move_action = self.more_menu.addAction(tr("Taşı…"), self._move)
         self.more_menu.addSeparator()
-        self.more_menu.addAction("Çalışma klasörünü değiştir…", self.root_requested.emit)
+        self.more_menu.addAction(tr("Çalışma klasörünü değiştir…"), self.root_requested.emit)
         self.more_button.setMenu(self.more_menu)
         toolbar.addWidget(self.more_button)
         layout.addWidget(self.toolbar_widget)
@@ -164,8 +174,8 @@ class WorkspaceBrowser(QWidget):
 
         self.file_list = QTreeWidget()
         self.file_list.setObjectName("fileList")
-        self.file_list.setAccessibleName("Çalışma klasöründeki dosyalar")
-        self.file_list.setHeaderLabels(["Ad", "Tür", "Değiştirilme", "Boyut"])
+        self.file_list.setAccessibleName(tr("Çalışma klasöründeki dosyalar"))
+        self.file_list.setHeaderLabels([tr("Ad"), tr("Tür"), tr("Değiştirilme"), tr("Boyut")])
         self.file_list.setRootIsDecorated(False)
         self.file_list.setItemsExpandable(False)
         self.file_list.setUniformRowHeights(True)
@@ -186,14 +196,14 @@ class WorkspaceBrowser(QWidget):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.Interactive)
         layout.addWidget(self.file_list, 1)
 
-        self.empty_label = QLabel("Bir çalışma klasörü seçin.", self.file_list.viewport())
+        self.empty_label = QLabel(tr("Bir çalışma klasörü seçin."), self.file_list.viewport())
         self.empty_label.setObjectName("emptyHint")
         self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_label.setWordWrap(True)
         self.empty_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.file_list.viewport().installEventFilter(self)
 
-        self.footer = QLabel("Excel, CSV ve TSV dosyaları")
+        self.footer = QLabel(tr("Excel, CSV ve TSV dosyaları"))
         self.footer.setObjectName("hint")
         self.footer.setTextFormat(Qt.TextFormat.PlainText)
         self.footer.setWordWrap(True)
@@ -206,9 +216,12 @@ class WorkspaceBrowser(QWidget):
             shortcut.activated.connect(callback)
             self._shortcuts.append(shortcut)
 
-    def _navigation_button(self, text, standard_icon):
+    def _navigation_button(self, text, symbol):
         widget = QToolButton()
-        widget.setIcon(self.style().standardIcon(standard_icon))
+        # Text symbols follow the active foreground palette, including theme
+        # changes, whereas native standard arrow icons can remain black.
+        widget.setText(symbol)
+        widget.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
         widget.setAccessibleName(text)
         widget.setToolTip(text)
         return widget
@@ -227,9 +240,9 @@ class WorkspaceBrowser(QWidget):
         try:
             path = Path(root).expanduser().resolve(strict=True)
             if not path.is_dir():
-                raise ValueError("Bir klasör seçin.")
+                raise ValueError(tr("Bir klasör seçin."))
         except (OSError, RuntimeError, ValueError):
-            self._error("Çalışma klasörü bulunamadı veya açılamıyor.")
+            self._error(tr("Çalışma klasörü bulunamadı veya açılamıyor."))
             return False
         self._root = path
         self._current = path
@@ -246,7 +259,7 @@ class WorkspaceBrowser(QWidget):
             candidate = self._current / candidate
         resolved = self._within_root(candidate)
         if resolved is None or not resolved.is_dir():
-            self._error("Bu klasöre erişilemiyor. Çalışma klasörünüzün içinden bir klasör seçin.")
+            self._error(tr("Bu klasöre erişilemiyor. Çalışma klasörünüzün içinden bir klasör seçin."))
             return False
         if resolved != self._current:
             self._history.append(self._current)
@@ -288,7 +301,7 @@ class WorkspaceBrowser(QWidget):
                     break
             if resolved is None or not resolved.is_dir():
                 self.file_list.clear()
-                self._error("Çalışma klasörüne erişilemiyor. Menüden başka bir klasör seçebilirsiniz.")
+                self._error(tr("Çalışma klasörüne erişilemiyor. Menüden başka bir klasör seçebilirsiniz."))
                 self._update_controls()
                 return
             if previous != self._current:
@@ -312,12 +325,12 @@ class WorkspaceBrowser(QWidget):
                     details = child.stat()
                 except OSError:
                     continue
-                kind = "Klasör" if is_folder else FILE_LABELS[child.suffix.lower()]
+                kind = tr("Klasör") if is_folder else tr(FILE_LABELS[child.suffix.lower()])
                 item = FileItem(
                     [
                         child.name,
                         kind,
-                        datetime.fromtimestamp(details.st_mtime).strftime("%d.%m.%Y %H:%M"),
+                        _modified_label(details.st_mtime),
                         "—" if is_folder else _size_label(details.st_size),
                     ]
                 )
@@ -338,11 +351,11 @@ class WorkspaceBrowser(QWidget):
                 else:
                     count_files += 1
         except OSError:
-            self._error("Bu klasörün içeriği okunamadı. Erişim izinlerini kontrol edin.")
+            self._error(tr("Bu klasörün içeriği okunamadı. Erişim izinlerini kontrol edin."))
         finally:
             self.file_list.setSortingEnabled(True)
-        self.empty_label.setText("Bu klasör boş.\nYeni dosya oluşturun veya dosyalarınızı içe aktarın.")
-        self.footer.setText(f"{count_folders} klasör · {count_files} dosya")
+        self.empty_label.setText(tr("Bu klasör boş.\nYeni dosya oluşturun veya dosyalarınızı içe aktarın."))
+        self.footer.setText(tr("{folders} klasör · {files} dosya", folders=count_folders, files=count_files))
         self._update_controls()
 
     def selected_path(self):
@@ -353,7 +366,7 @@ class WorkspaceBrowser(QWidget):
         path = item.data(0, PATH_ROLE)
         safe = self._within_root(path)
         if safe is None:
-            self._error("Dosya bulunamadı veya çalışma klasörünün dışında.")
+            self._error(tr("Dosya bulunamadı veya çalışma klasörünün dışında."))
         elif safe.is_dir():
             self.navigate(path)
         elif safe.is_file() and path.suffix.lower() in TABLE_EXTENSIONS:
@@ -422,17 +435,17 @@ class WorkspaceBrowser(QWidget):
         menu = QMenu(self)
         if item is not None:
             self.file_list.setCurrentItem(item)
-            menu.addAction("Aç", lambda: self._open_item(item))
+            menu.addAction(tr("Aç"), lambda: self._open_item(item))
             menu.addSeparator()
-            menu.addAction("Yeniden adlandır…", self._rename)
-            menu.addAction("Taşı…", self._move)
+            menu.addAction(tr("Yeniden adlandır…"), self._rename)
+            menu.addAction(tr("Taşı…"), self._move)
             menu.addAction(
-                "Yolu kopyala", lambda: QApplication.clipboard().setText(str(self.selected_path()))
+                tr("Yolu kopyala"), lambda: QApplication.clipboard().setText(str(self.selected_path()))
             )
         else:
-            menu.addAction("Yeni dosya…", self._new_file).setEnabled(self._current is not None)
-            menu.addAction("Yeni klasör…", self._new_folder).setEnabled(self._current is not None)
-            menu.addAction("İçe aktar…", self._import).setEnabled(self._current is not None)
+            menu.addAction(tr("Yeni dosya…"), self._new_file).setEnabled(self._current is not None)
+            menu.addAction(tr("Yeni klasör…"), self._new_folder).setEnabled(self._current is not None)
+            menu.addAction(tr("İçe aktar…"), self._import).setEnabled(self._current is not None)
         menu.exec(self.file_list.viewport().mapToGlobal(point))
 
     def _adapt_layout(self):

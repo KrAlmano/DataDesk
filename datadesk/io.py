@@ -22,6 +22,8 @@ from typing import Any
 
 import pandas as pd
 
+from .translations_engine import tr
+
 INPUT_SUFFIXES = {".xlsx", ".xlsm", ".xls", ".csv", ".tsv"}
 OUTPUT_SUFFIXES = {".xlsx", ".csv", ".tsv", ".docx"}
 
@@ -64,9 +66,9 @@ class ExportOptions:
 def _source(path: str | Path) -> Path:
     path = Path(path).expanduser()
     if not path.is_file():
-        raise ValueError(f"Dosya bulunamadı: {path.name}")
+        raise ValueError(tr("Dosya bulunamadı: {name}", name=path.name))
     if path.suffix.lower() not in INPUT_SUFFIXES:
-        raise ValueError("Desteklenen giriş biçimleri: XLSX, XLSM, XLS, CSV ve TSV.")
+        raise ValueError(tr("Desteklenen giriş biçimleri: XLSX, XLSM, XLS, CSV ve TSV."))
     return path
 
 
@@ -76,7 +78,9 @@ def _decode(data: bytes, encoding: str | None = None) -> tuple[str, str, list[st
         try:
             return data.decode(encoding).removeprefix("\ufeff"), encoding, warnings
         except (UnicodeError, LookupError) as exc:
-            raise ValueError(f"Dosya {encoding} kodlamasıyla okunamadı. Kodlamayı değiştirin.") from exc
+            raise ValueError(
+                tr("Dosya {encoding} kodlamasıyla okunamadı. Kodlamayı değiştirin.", encoding=encoding)
+            ) from exc
     if data.startswith((codecs.BOM_UTF32_LE, codecs.BOM_UTF32_BE)):
         chosen = "utf-32"
     elif data.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
@@ -89,13 +93,15 @@ def _decode(data: bytes, encoding: str | None = None) -> tuple[str, str, list[st
         except UnicodeError:
             chosen = "cp1254"
             warnings.append(
-                "UTF-8 olmayan CSV, Windows Türkçe (CP1254) ile okundu. "
-                "Harfler yanlış görünüyorsa içe aktarma kodlamasını CP1252 veya başka bir kodlama olarak değiştirin."
+                tr(
+                    "UTF-8 olmayan CSV, Windows Türkçe (CP1254) ile okundu. "
+                    "Harfler yanlış görünüyorsa içe aktarma kodlamasını CP1252 veya başka bir kodlama olarak değiştirin."
+                )
             )
     try:
         return data.decode(chosen), chosen, warnings
     except UnicodeError as exc:
-        raise ValueError("Dosyanın metin kodlaması belirlenemedi. Kodlamayı elle seçin.") from exc
+        raise ValueError(tr("Dosyanın metin kodlaması belirlenemedi. Kodlamayı elle seçin.")) from exc
 
 
 def _delimiter(text: str, suffix: str, header_row: int | None = 1) -> str:
@@ -144,7 +150,7 @@ def _delimiter(text: str, suffix: str, header_row: int | None = 1) -> str:
 
 def _valid_delimiter(delimiter: str) -> None:
     if len(delimiter) != 1 or delimiter in {"\r", "\n", '"'}:
-        raise ValueError("CSV ayıracı tek bir karakter olmalıdır (ör. ; , veya sekme).")
+        raise ValueError(tr("CSV ayıracı tek bir karakter olmalıdır (ör. ; , veya sekme)."))
 
 
 def inspect_file(path: str | Path) -> FileInfo:
@@ -157,7 +163,9 @@ def inspect_file(path: str | Path) -> FileInfo:
             return FileInfo(
                 path=path,
                 warnings=[
-                    "Metin kodlaması otomatik belirlenemedi. İçe aktarma penceresinde kodlamayı elle seçin."
+                    tr(
+                        "Metin kodlaması otomatik belirlenemedi. İçe aktarma penceresinde kodlamayı elle seçin."
+                    )
                 ],
             )
         return FileInfo(encoding=encoding, delimiter=_delimiter(text, suffix), path=path, warnings=warnings)
@@ -179,7 +187,7 @@ def inspect_file(path: str | Path) -> FileInfo:
             finally:
                 book.close()
     except Exception as exc:
-        raise ValueError(f"Excel dosyası açılamadı: {exc}") from exc
+        raise ValueError(tr("Excel dosyası açılamadı: {error}", error=exc)) from exc
     return FileInfo(sheets=sheets, path=path)
 
 
@@ -199,8 +207,8 @@ def _headers(values: list[Any]) -> list[str]:
     result: list[str] = []
     used: set[str] = set()
     for position, value in enumerate(values, 1):
-        name = f"Sütun {position}" if _blank(value) else str(value).strip()
-        name = name or f"Sütun {position}"
+        name = tr("Sütun {position}", position=position) if _blank(value) else str(value).strip()
+        name = name or tr("Sütun {position}", position=position)
         unique = name
         counter = 2
         while unique in used:
@@ -213,21 +221,21 @@ def _headers(values: list[Any]) -> list[str]:
 
 def _make_frame(rows: list[list[Any]], header_row: int | None, *, trim: bool = False) -> pd.DataFrame:
     if header_row is not None and (isinstance(header_row, bool) or header_row < 1):
-        raise ValueError("Başlık satırı 1 veya daha büyük olmalıdır.")
+        raise ValueError(tr("Başlık satırı 1 veya daha büyük olmalıdır."))
     if not rows:
-        raise ValueError("Dosya veya seçilen sayfa boş.")
+        raise ValueError(tr("Dosya veya seçilen sayfa boş."))
     relevant = rows if header_row is None else rows[header_row - 1 :]
     if not relevant:
-        raise ValueError("Başlık satırı dosyadaki satır sayısını aşıyor.")
+        raise ValueError(tr("Başlık satırı dosyadaki satır sayısını aşıyor."))
     width = max(map(len, relevant))
     if not width:
-        raise ValueError("Dosyada okunabilir sütun bulunamadı.")
+        raise ValueError(tr("Dosyada okunabilir sütun bulunamadı."))
     if header_row is None:
-        columns = [f"Sütun {i + 1}" for i in range(width)]
+        columns = [tr("Sütun {position}", position=i + 1) for i in range(width)]
         data = rows
     else:
         if header_row > len(rows):
-            raise ValueError("Başlık satırı dosyadaki satır sayısını aşıyor.")
+            raise ValueError(tr("Başlık satırı dosyadaki satır sayısını aşıyor."))
         head = rows[header_row - 1]
         columns = _headers(head + [None] * (width - len(head)))
         data = rows[header_row:]
@@ -244,7 +252,7 @@ def _sheet_name(sheets: list[str], sheet: str | int) -> str:
             return sheets[sheet]
     elif isinstance(sheet, str) and sheet in sheets:
         return sheet
-    raise ValueError("Seçilen Excel sayfası bulunamadı.")
+    raise ValueError(tr("Seçilen Excel sayfası bulunamadı."))
 
 
 def _zero_mask(value: Any, number_format: str) -> Any:
@@ -282,9 +290,10 @@ def _read_xlsx(path: Path, options: ImportOptions) -> LoadedTable:
         warnings = []
         if uncached:
             warnings.append(
-                f"{uncached} formül hücresinin kayıtlı sonucu yok; formül metni gösteriliyor. "
-                "Sonuçlarla filtrelemek için dosyayı Excel veya LibreOffice'te yeniden hesaplayıp kaydedin. "
-                "DataDesk formülleri yeniden hesaplamaz."
+                tr(
+                    "{count} formül hücresinin kayıtlı sonucu yok; formül metni gösteriliyor. Sonuçlarla filtrelemek için dosyayı Excel veya LibreOffice'te yeniden hesaplayıp kaydedin. DataDesk formülleri yeniden hesaplamaz.",
+                    count=uncached,
+                )
             )
         return LoadedTable(_make_frame(rows, options.header_row, trim=True), sheet=name, warnings=warnings)
     finally:
@@ -334,7 +343,7 @@ def read_table(path: str | Path, options: ImportOptions | None = None) -> Loaded
         or isinstance(options.header_row, bool)
         or options.header_row < 1
     ):
-        raise ValueError("Başlık satırı 1 veya daha büyük olmalıdır.")
+        raise ValueError(tr("Başlık satırı 1 veya daha büyük olmalıdır."))
     try:
         if path.suffix.lower() == ".xls":
             return _read_xls(path, options)
@@ -349,7 +358,9 @@ def read_table(path: str | Path, options: ImportOptions | None = None) -> Loaded
             for row in reader:
                 rows.append(row)
         except csv.Error as exc:
-            raise ValueError(f"CSV, {reader.line_num}. satırda okunamadı: {exc}") from exc
+            raise ValueError(
+                tr("CSV, {line}. satırda okunamadı: {error}", line=reader.line_num, error=exc)
+            ) from exc
         start = (options.header_row - 1) if options.header_row is not None else 0
         if rows and start < len(rows):
             width = (
@@ -363,8 +374,12 @@ def read_table(path: str | Path, options: ImportOptions | None = None) -> Loaded
                     continue
                 if len(row) != width:
                     raise ValueError(
-                        f"CSV {i}. kayıtta {len(row)} alan içeriyor; beklenen {width}. "
-                        "Ayıraç ve tırnak işaretlerini kontrol edin. Hiçbir satır atlanmadı."
+                        tr(
+                            "CSV {record}. kayıtta {actual} alan içeriyor; beklenen {expected}. Ayıraç ve tırnak işaretlerini kontrol edin. Hiçbir satır atlanmadı.",
+                            record=i,
+                            actual=len(row),
+                            expected=width,
+                        )
                     )
         return LoadedTable(
             _make_frame(rows, options.header_row), encoding=encoding, delimiter=delimiter, warnings=warnings
@@ -372,7 +387,7 @@ def read_table(path: str | Path, options: ImportOptions | None = None) -> Loaded
     except ValueError:
         raise
     except Exception as exc:
-        raise ValueError(f"Dosya okunamadı: {exc}") from exc
+        raise ValueError(tr("Dosya okunamadı: {error}", error=exc)) from exc
 
 
 def _excel_value(value: Any) -> Any:
@@ -403,22 +418,26 @@ def _write_xlsx(frame: pd.DataFrame, target: Path, options: ExportOptions) -> No
     from openpyxl.utils import get_column_letter
 
     if len(frame) > 1_048_575 or len(frame.columns) > 16_384:
-        raise ValueError("Excel sınırı aşıldı (1.048.575 veri satırı, 16.384 sütun). CSV kullanın.")
+        raise ValueError(tr("Excel sınırı aşıldı (1.048.575 veri satırı, 16.384 sütun). CSV kullanın."))
     if (
         not options.sheet_name
         or len(options.sheet_name) > 31
         or re.search(r"[\\/*?:\[\]]", options.sheet_name)
     ):
-        raise ValueError("Excel sayfa adı 1–31 karakter olmalı ve \\ / * ? : [ ] içermemelidir.")
+        raise ValueError(tr("Excel sayfa adı 1–31 karakter olmalı ve \\ / * ? : [ ] içermemelidir."))
 
     # openpyxl otherwise truncates overlong strings. Validate before opening
     # its streaming XML writer so a rejected export leaves no partial streams.
     def validate_text(value: str) -> None:
         if len(value) > 32767:
-            raise ValueError("Bir hücre veya başlık Excel'in 32.767 karakter sınırını aşıyor. CSV kullanın.")
+            raise ValueError(
+                tr("Bir hücre veya başlık Excel'in 32.767 karakter sınırını aşıyor. CSV kullanın.")
+            )
         if re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", value):
             raise ValueError(
-                "Bir hücre Excel'in desteklemediği denetim karakteri içeriyor. CSV kullanın veya metni düzeltin."
+                tr(
+                    "Bir hücre Excel'in desteklemediği denetim karakteri içeriyor. CSV kullanın veya metni düzeltin."
+                )
             )
 
     for column in frame.columns:
@@ -451,7 +470,7 @@ def _write_xlsx(frame: pd.DataFrame, target: Path, options: ExportOptions) -> No
         for raw in row:
             value = _excel_value(raw)
             if isinstance(value, str) and len(value) > 32767:
-                raise ValueError("Bir hücre Excel'in 32.767 karakter sınırını aşıyor. CSV kullanın.")
+                raise ValueError(tr("Bir hücre Excel'in 32.767 karakter sınırını aşıyor. CSV kullanın."))
             cell = WriteOnlyCell(sheet, value=value)
             if isinstance(value, str):
                 cell.data_type = "s"
@@ -501,8 +520,10 @@ def _write_docx(frame: pd.DataFrame, target: Path) -> None:
     section.orientation = WD_ORIENT.LANDSCAPE
     section.page_width, section.page_height = Cm(29.7), Cm(21)
     section.left_margin = section.right_margin = Cm(1.2)
-    document.add_heading("DataDesk · Sonuçlar", 0)
-    document.add_paragraph(f"{len(frame):,} satır · {len(frame.columns)} sütun")
+    document.add_heading(tr("DataDesk · Sonuçlar"), 0)
+    document.add_paragraph(
+        tr("{rows:,} satır · {columns} sütun", rows=len(frame), columns=len(frame.columns))
+    )
     table = document.add_table(rows=1, cols=len(frame.columns))
     table.style = "Light Shading Accent 1"
     for cell, column in zip(table.rows[0].cells, frame.columns):
@@ -520,19 +541,19 @@ def write_table(frame: pd.DataFrame, path: str | Path, options: ExportOptions | 
     path = Path(path).expanduser()
     suffix = path.suffix.lower()
     if suffix not in OUTPUT_SUFFIXES:
-        raise ValueError("Desteklenen çıktı biçimleri: XLSX, CSV, TSV ve DOCX.")
+        raise ValueError(tr("Desteklenen çıktı biçimleri: XLSX, CSV, TSV ve DOCX."))
     if not frame.columns.is_unique:
-        raise ValueError("Çıktı sütun başlıkları benzersiz olmalıdır.")
+        raise ValueError(tr("Çıktı sütun başlıkları benzersiz olmalıdır."))
     if options.columns is not None:
         if len(set(options.columns)) != len(options.columns) or any(
             col not in frame.columns for col in options.columns
         ):
-            raise ValueError("Çıktı sütun seçimi geçersiz.")
+            raise ValueError(tr("Çıktı sütun seçimi geçersiz."))
         frame = frame.loc[:, options.columns]
     if not len(frame.columns):
-        raise ValueError("Dışa aktarmak için en az bir sütun seçin.")
+        raise ValueError(tr("Dışa aktarmak için en az bir sütun seçin."))
     if not path.parent.is_dir():
-        raise ValueError("Çıktı klasörü bulunamadı.")
+        raise ValueError(tr("Çıktı klasörü bulunamadı."))
     handle, temporary = tempfile.mkstemp(prefix=f".{path.stem}-", suffix=suffix, dir=path.parent)
     os.close(handle)
     target = Path(temporary)
@@ -547,7 +568,7 @@ def write_table(frame: pd.DataFrame, path: str | Path, options: ExportOptions | 
     except ValueError:
         raise
     except Exception as exc:
-        raise ValueError(f"Dosya kaydedilemedi: {exc}") from exc
+        raise ValueError(tr("Dosya kaydedilemedi: {error}", error=exc)) from exc
     finally:
         target.unlink(missing_ok=True)
     return path

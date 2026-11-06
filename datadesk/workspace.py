@@ -24,6 +24,7 @@ import unicodedata
 import pandas as pd
 
 from .io import ExportOptions, INPUT_SUFFIXES, write_table
+from .translations_engine import tr
 
 TABLE_SUFFIXES = {".xlsx", ".csv", ".tsv"}
 MANIFEST_NAME = ".datadesk.json"
@@ -49,17 +50,17 @@ class WorkspaceEntry:
 def validate_name(name: str) -> str:
     """Use the same portable file-name rules on macOS and Windows."""
     if not isinstance(name, str) or not name or not name.strip():
-        raise ValueError("Bir ad yazın.")
+        raise ValueError(tr("Bir ad yazın."))
     if name.startswith("."):
-        raise ValueError("Ad nokta ile başlayamaz.")
+        raise ValueError(tr("Ad nokta ile başlayamaz."))
     if name != name.strip() or name.endswith("."):
-        raise ValueError("Adın başında veya sonunda boşluk, sonunda nokta bulunamaz.")
+        raise ValueError(tr("Adın başında veya sonunda boşluk, sonunda nokta bulunamaz."))
     if name in {".", ".."} or re.search(r'[<>:"/\\|?*\x00-\x1f]', name):
-        raise ValueError('Ad; / \\ : * ? " < > | veya denetim karakteri içeremez.')
+        raise ValueError(tr('Ad; / \\ : * ? " < > | veya denetim karakteri içeremez.'))
     if _RESERVED_NAMES.match(name):
-        raise ValueError("Bu ad Windows tarafından ayrılmış. Başka bir ad seçin.")
+        raise ValueError(tr("Bu ad Windows tarafından ayrılmış. Başka bir ad seçin."))
     if len(name.encode("utf-8")) > 240:
-        raise ValueError("Ad çok uzun. Daha kısa bir ad yazın.")
+        raise ValueError(tr("Ad çok uzun. Daha kısa bir ad yazın."))
     return name
 
 
@@ -83,7 +84,7 @@ def _rename_exclusive(source: Path, target: Path) -> None:
         rename.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
         arguments = (-100, os.fsencode(source), -100, os.fsencode(target), 1)  # RENAME_NOREPLACE
     else:
-        raise OSError(errno.ENOTSUP, "Güvenli taşıma bu sistemde desteklenmiyor.")
+        raise OSError(errno.ENOTSUP, tr("Güvenli taşıma bu sistemde desteklenmiyor."))
     rename.restype = ctypes.c_int
     if rename(*arguments) != 0:
         error = ctypes.get_errno()
@@ -97,17 +98,17 @@ class Workspace:
             if create:
                 path.mkdir(parents=True, exist_ok=True)
             if not path.is_dir():
-                raise ValueError("Çalışma alanı klasörü bulunamadı.")
+                raise ValueError(tr("Çalışma alanı klasörü bulunamadı."))
             self.root = path.resolve(strict=True)
         except OSError as exc:
-            raise ValueError(f"Çalışma alanı açılamadı: {exc}") from exc
+            raise ValueError(tr("Çalışma alanı açılamadı: {error}", error=exc)) from exc
         self.metadata_warning = ""
         self._managed = self._load_managed()
 
     def _load_managed(self) -> dict[str, dict[str, int]]:
         manifest = self.root / MANIFEST_NAME
         if manifest.is_symlink():
-            self.metadata_warning = (
+            self.metadata_warning = tr(
                 "Çalışma alanı kaydı bir bağlantı; dosyalar güvenli kaydetme için tanınamadı."
             )
             return {}
@@ -134,7 +135,7 @@ class Workspace:
                     result[name] = identity
             return result
         except (OSError, ValueError, TypeError, AttributeError):
-            self.metadata_warning = (
+            self.metadata_warning = tr(
                 "Çalışma alanı kaydı okunamadı; mevcut dosyalar Farklı Kaydet ile korunacak."
             )
             return {}
@@ -169,7 +170,7 @@ class Workspace:
         except OSError:
             # The table operation has already succeeded. Do not report that
             # creation/move failed or risk overwriting it on a repeated click.
-            self.metadata_warning = (
+            self.metadata_warning = tr(
                 "Dosya işlemi tamamlandı ancak çalışma alanı kaydı güncellenemedi. "
                 "Bu dosyada Farklı Kaydet kullanın."
             )
@@ -181,11 +182,11 @@ class Workspace:
     def register_table(self, path: str | Path) -> bool:
         target = self.resolve(path)
         if not target.is_file() or target.suffix.lower() not in TABLE_SUFFIXES:
-            raise ValueError("Kaydedilebilir bir XLSX, CSV veya TSV dosyası seçin.")
+            raise ValueError(tr("Kaydedilebilir bir XLSX, CSV veya TSV dosyası seçin."))
         try:
             identity = self._identity(target)
         except OSError as exc:
-            self.metadata_warning = f"Dosya kaydı güncellenemedi: {exc}"
+            self.metadata_warning = tr("Dosya kaydı güncellenemedi: {error}", error=exc)
             return False
         managed = dict(self._managed)
         managed[target.relative_to(self.root).as_posix()] = identity
@@ -217,27 +218,27 @@ class Workspace:
         """Accept relative paths or absolute paths already inside this workspace."""
         path = Path(relative)
         if ".." in path.parts:
-            raise ValueError("Çalışma alanının dışındaki bir yol kullanılamaz.")
+            raise ValueError(tr("Çalışma alanının dışındaki bir yol kullanılamaz."))
         candidate = path if path.is_absolute() else self.root / path
         try:
             resolved = candidate.resolve(strict=must_exist)
         except (OSError, RuntimeError) as exc:
-            raise ValueError("Dosya veya klasör bulunamadı ya da erişilemiyor.") from exc
+            raise ValueError(tr("Dosya veya klasör bulunamadı ya da erişilemiyor.")) from exc
         if not resolved.is_relative_to(self.root):
-            raise ValueError("Çalışma alanının dışındaki bir yol kullanılamaz.")
+            raise ValueError(tr("Çalışma alanının dışındaki bir yol kullanılamaz."))
         # Avoid treating a linked entry as the real file when renaming/moving.
         # A user may explicitly choose a linked root; inside it links are omitted.
         try:
             lexical_relative = candidate.relative_to(self.root)
         except ValueError as exc:
-            raise ValueError("Çalışma alanının dışındaki bir yol kullanılamaz.") from exc
+            raise ValueError(tr("Çalışma alanının dışındaki bir yol kullanılamaz.")) from exc
         current = self.root
         for part in lexical_relative.parts:
             current = current / part
             if current.is_symlink():
-                raise ValueError("Çalışma alanında sembolik bağlantılar kullanılamaz.")
+                raise ValueError(tr("Çalışma alanında sembolik bağlantılar kullanılamaz."))
         if must_exist and not resolved.exists():
-            raise ValueError("Dosya veya klasör bulunamadı.")
+            raise ValueError(tr("Dosya veya klasör bulunamadı."))
         return resolved
 
     def relative(self, path: str | Path) -> Path:
@@ -246,7 +247,7 @@ class Workspace:
     def _directory(self, relative: str | Path) -> Path:
         directory = self.resolve(relative)
         if not directory.is_dir():
-            raise ValueError("Bir klasör seçin.")
+            raise ValueError(tr("Bir klasör seçin."))
         return directory
 
     def entries(self, relative: str | Path = ".") -> list[WorkspaceEntry]:
@@ -277,7 +278,7 @@ class Workspace:
                     )
                 )
         except OSError as exc:
-            raise ValueError(f"Klasör okunamadı: {exc}") from exc
+            raise ValueError(tr("Klasör okunamadı: {error}", error=exc)) from exc
         return sorted(entries, key=lambda item: (not item.is_dir, _name_key(item.name)))
 
     @staticmethod
@@ -286,11 +287,11 @@ class Workspace:
         key = _name_key(name)
         for existing in directory.iterdir():
             if existing != exclude and _name_key(existing.name) == key:
-                raise WorkspaceCollision(f"“{name}” zaten var. Başka bir ad seçin.")
+                raise WorkspaceCollision(tr("“{name}” zaten var. Başka bir ad seçin.", name=name))
         target = directory / name
         if target.exists() or target.is_symlink():
             if exclude != target:
-                raise WorkspaceCollision(f"“{name}” zaten var. Başka bir ad seçin.")
+                raise WorkspaceCollision(tr("“{name}” zaten var. Başka bir ad seçin.", name=name))
         return target
 
     @staticmethod
@@ -307,7 +308,7 @@ class Workspace:
         except ValueError:
             raise
         except OSError as exc:
-            raise ValueError(f"Klasör oluşturulamadı: {exc}") from exc
+            raise ValueError(tr("Klasör oluşturulamadı: {error}", error=exc)) from exc
 
     def create_table(
         self,
@@ -319,18 +320,18 @@ class Workspace:
     ) -> Path:
         file_format = file_format.lower().lstrip(".")
         if f".{file_format}" not in TABLE_SUFFIXES:
-            raise ValueError("Yeni dosya biçimi XLSX, CSV veya TSV olmalıdır.")
+            raise ValueError(tr("Yeni dosya biçimi XLSX, CSV veya TSV olmalıdır."))
         validate_name(name)
         suffix = Path(name).suffix.lower()
         if suffix not in TABLE_SUFFIXES:
             name += f".{file_format}"
         if not columns or any(not isinstance(column, str) or not column.strip() for column in columns):
-            raise ValueError("En az bir boş olmayan sütun adı yazın.")
+            raise ValueError(tr("En az bir boş olmayan sütun adı yazın."))
         headings = [column.strip() for column in columns]
         if len(set(headings)) != len(headings):
-            raise ValueError("Sütun adları birbirinden farklı olmalıdır.")
+            raise ValueError(tr("Sütun adları birbirinden farklı olmalıdır."))
         if len(headings) > 16_384 and Path(name).suffix.lower() == ".xlsx":
-            raise ValueError("Excel dosyasında en fazla 16.384 sütun olabilir.")
+            raise ValueError(tr("Excel dosyasında en fazla 16.384 sütun olabilir."))
         temporary = None
         try:
             target = self._available(self._directory(parent), name)
@@ -342,7 +343,7 @@ class Workspace:
             write_table(
                 pd.DataFrame(columns=headings, dtype=object),
                 temporary,
-                ExportOptions(sheet_name="Sayfa1", safe_csv=False),
+                ExportOptions(sheet_name=tr("Sayfa1"), safe_csv=False),
             )
             self._publish(temporary, target)
             self.register_table(target)
@@ -350,7 +351,7 @@ class Workspace:
         except ValueError:
             raise
         except OSError as exc:
-            raise ValueError(f"Dosya oluşturulamadı: {exc}") from exc
+            raise ValueError(tr("Dosya oluşturulamadı: {error}", error=exc)) from exc
         finally:
             if temporary is not None:
                 temporary.unlink(missing_ok=True)
@@ -360,9 +361,9 @@ class Workspace:
         originals = [Path(source).expanduser() for source in sources]
         for source in originals:
             if not source.is_file():
-                raise ValueError(f"Dosya bulunamadı: {source.name}")
+                raise ValueError(tr("Dosya bulunamadı: {name}", name=source.name))
             if source.suffix.lower() not in INPUT_SUFFIXES:
-                raise ValueError("Yalnızca XLSX, XLSM, XLS, CSV ve TSV dosyaları eklenebilir.")
+                raise ValueError(tr("Yalnızca XLSX, XLSM, XLS, CSV ve TSV dosyaları eklenebilir."))
             validate_name(source.name)
         imported = []
         temporary = None
@@ -403,7 +404,7 @@ class Workspace:
                 target.unlink(missing_ok=True)
             if isinstance(exc, ValueError):
                 raise
-            raise ValueError(f"Dosyalar eklenemedi: {exc}") from exc
+            raise ValueError(tr("Dosyalar eklenemedi: {error}", error=exc)) from exc
         finally:
             if temporary is not None:
                 temporary.unlink(missing_ok=True)
@@ -411,10 +412,10 @@ class Workspace:
     def rename(self, relative: str | Path, new_name: str) -> Path:
         source = self.resolve(relative)
         if source == self.root:
-            raise ValueError("Çalışma alanının ana klasörü yeniden adlandırılamaz.")
+            raise ValueError(tr("Çalışma alanının ana klasörü yeniden adlandırılamaz."))
         validate_name(new_name)
         if source.is_file() and Path(new_name).suffix.lower() != source.suffix.lower():
-            raise ValueError("Dosyanın uzantısını değiştirmeden yeniden adlandırın.")
+            raise ValueError(tr("Dosyanın uzantısını değiştirmeden yeniden adlandırın."))
         if source.name == new_name:
             return source
         try:
@@ -425,17 +426,17 @@ class Workspace:
         except ValueError:
             raise
         except OSError as exc:
-            raise ValueError(f"Ad değiştirilemedi: {exc}") from exc
+            raise ValueError(tr("Ad değiştirilemedi: {error}", error=exc)) from exc
 
     def move(self, relative: str | Path, destination_parent: str | Path) -> Path:
         source = self.resolve(relative)
         destination = self._directory(destination_parent)
         if source == self.root:
-            raise ValueError("Çalışma alanının ana klasörü taşınamaz.")
+            raise ValueError(tr("Çalışma alanının ana klasörü taşınamaz."))
         if source.parent == destination:
             return source
         if source.is_dir() and destination.is_relative_to(source):
-            raise ValueError("Bir klasör kendi içine taşınamaz.")
+            raise ValueError(tr("Bir klasör kendi içine taşınamaz."))
         try:
             target = self._available(destination, source.name)
             self._publish(source, target)
@@ -444,4 +445,4 @@ class Workspace:
         except ValueError:
             raise
         except OSError as exc:
-            raise ValueError(f"Dosya veya klasör taşınamadı: {exc}") from exc
+            raise ValueError(tr("Dosya veya klasör taşınamadı: {error}", error=exc)) from exc

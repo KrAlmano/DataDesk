@@ -4,9 +4,15 @@ from PySide6.QtCore import QEvent, QPoint, QTimer, Qt
 from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QFrame, QLabel, QScrollArea, QSizePolicy
 
+from .i18n import render_text
+
 
 class ElidedLabel(QLabel):
     """Keep the complete filename accessible while its painted title can shrink."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setTextFormat(Qt.TextFormat.PlainText)
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -44,6 +50,7 @@ class Notice(QScrollArea):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.message = QLabel()
+        self.message.setTextFormat(Qt.TextFormat.PlainText)
         self.message.setObjectName("notice")
         self.message.setWordWrap(True)
         self.message.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -54,11 +61,16 @@ class Notice(QScrollArea):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.limit = 84
+        self._value = ""
 
     def setText(self, text):
-        self.message.setText(text)
-        self.message.setAccessibleName(text)
+        self._value = text
+        self.message.setText(render_text(text))
+        self.message.setAccessibleName(render_text(text))
         self._fit_height()
+
+    def value(self):
+        return self._value
 
     def text(self):
         return self.message.text()

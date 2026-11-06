@@ -26,6 +26,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .i18n import tr
+from . import translations_workspace as _translations_workspace  # noqa: F401
 from .io import ExportOptions, ImportOptions
 from .models import TableModel
 from .widgets import ControlScrollArea
@@ -86,6 +88,8 @@ class ScrollableDialog(QDialog):
         self.content_layout.setContentsMargins(2, 2, 8, 2)
         self.content_layout.setSpacing(12)
         self.content_scroll.setWidget(self.content)
+        self.content.setAutoFillBackground(False)
+        self.content_scroll.viewport().setAutoFillBackground(False)
         self.shell.addWidget(self.content_scroll, 1)
 
     def add_adaptive_row(self, row):
@@ -164,45 +168,47 @@ class ImportDialog(ScrollableDialog):
 
     def __init__(self, path, info, loaded=None, error="", parent=None):
         super().__init__((850, 660), parent)
-        self.setWindowTitle("DataDesk · Dosyayı içe aktar")
+        self.setWindowTitle(tr("DataDesk · Dosyayı içe aktar"))
         self.path = Path(path)
         layout = self.content_layout
         title = wrapped_label(self.path.name, "sectionTitle")
         title.setToolTip(self.path.name)
         layout.addWidget(title)
         subtitle = wrapped_label(
-            "Sayfayı ve başlığı kontrol edin. Veriler kaynak dosya değiştirilmeden açılır.", "muted"
+            tr("Sayfayı ve başlığı kontrol edin. Veriler kaynak dosya değiştirilmeden açılır."), "muted"
         )
         layout.addWidget(subtitle)
         form = form_layout()
         self.sheet = combo([(name, name) for name in (info.sheets or ["CSV / TSV"])])
         self.sheet.setEnabled(bool(info.sheets))
-        form.addRow("Excel sayfası", self.sheet)
+        form.addRow(tr("Excel sayfası"), self.sheet)
         self.header = QSpinBox()
         self.header.setRange(1, 10000)
         self.header.setValue(1)
-        self.no_header = QCheckBox("Başlık yok")
-        self.no_header.setAccessibleName("Dosyada başlık yok")
-        self.no_header.setToolTip("İlk satırı da veri olarak kullan; sütun başlıklarını DataDesk oluştursun.")
+        self.no_header = QCheckBox(tr("Başlık yok"))
+        self.no_header.setAccessibleName(tr("Dosyada başlık yok"))
+        self.no_header.setToolTip(
+            tr("İlk satırı da veri olarak kullan; sütun başlıklarını DataDesk oluştursun.")
+        )
         self.no_header.toggled.connect(lambda checked: self.header.setEnabled(not checked))
-        form.addRow("Başlık satırı", self.header)
+        form.addRow(tr("Başlık satırı"), self.header)
         form.addRow(self.no_header)
-        self.encoding = combo(ENCODINGS)
-        self.delimiter = combo(DELIMITERS)
+        self.encoding = combo([(tr(label), value) for label, value in ENCODINGS])
+        self.delimiter = combo([(tr(label), value) for label, value in DELIMITERS])
         is_csv = self.path.suffix.lower() in (".csv", ".tsv")
         self.encoding.setEnabled(is_csv)
         self.delimiter.setEnabled(is_csv)
-        form.addRow("CSV kodlaması", self.encoding)
-        form.addRow("CSV ayırıcısı", self.delimiter)
+        form.addRow(tr("CSV kodlaması"), self.encoding)
+        form.addRow(tr("CSV ayırıcısı"), self.delimiter)
         form.setRowVisible(self.sheet, not is_csv)
         form.setRowVisible(self.encoding, is_csv)
         form.setRowVisible(self.delimiter, is_csv)
         layout.addLayout(form)
         preview_row = QHBoxLayout()
-        preview_caption = wrapped_label("VERİ ÖNİZLEMESİ · İLK 6 SATIR")
+        preview_caption = wrapped_label(tr("VERİ ÖNİZLEMESİ · İLK 6 SATIR"))
         preview_caption.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         preview_row.addWidget(preview_caption, 1)
-        self.preview_button = QPushButton("Önizlemeyi yenile")
+        self.preview_button = QPushButton(tr("Önizlemeyi yenile"))
         self.preview_button.clicked.connect(lambda: self.preview_requested.emit(self.options()))
         preview_row.addWidget(self.preview_button)
         self.add_adaptive_row(preview_row)
@@ -221,8 +227,8 @@ class ImportDialog(ScrollableDialog):
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Open
         )
-        self.buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Vazgeç")
-        self.buttons.button(QDialogButtonBox.StandardButton.Open).setText("Dosyayı aç")
+        self.buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(tr("Vazgeç"))
+        self.buttons.button(QDialogButtonBox.StandardButton.Open).setText(tr("Dosyayı aç"))
         self.buttons.button(QDialogButtonBox.StandardButton.Open).setObjectName("primary")
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
@@ -234,10 +240,10 @@ class ImportDialog(ScrollableDialog):
         if loaded is not None:
             self.set_preview(loaded)
         else:
-            self.message.setText(error or "Önizlemeyi yenileyerek dosyayı kontrol edin.")
+            self.message.setText(error or tr("Önizlemeyi yenileyerek dosyayı kontrol edin."))
 
     def mark_stale(self, *_):
-        self.message.setText("Ayarlar değişti. Açmadan önce önizlemeyi yenileyebilirsiniz.")
+        self.message.setText(tr("Ayarlar değişti. Açmadan önce önizlemeyi yenileyebilirsiniz."))
 
     def options(self):
         sheet = self.sheet.currentText() if self.sheet.isEnabled() else 0
@@ -252,7 +258,9 @@ class ImportDialog(ScrollableDialog):
         self.preview_model.replace(loaded.frame.head(6), {c: "text" for c in loaded.frame.columns})
         for i in range(len(loaded.frame.columns)):
             self.preview.setColumnWidth(i, 145)
-        details = f"{len(loaded.frame):,} satır · {len(loaded.frame.columns)} sütun"
+        details = tr(
+            "{count:,} satır · {columns} sütun", count=len(loaded.frame), columns=len(loaded.frame.columns)
+        )
         if loaded.encoding:
             details += f" · {loaded.encoding}"
         self.message.setText(details + ("\n" + "\n".join(loaded.warnings) if loaded.warnings else ""))
@@ -275,12 +283,14 @@ class ImportDialog(ScrollableDialog):
 class ExportDialog(ScrollableDialog):
     def __init__(self, columns, count, parent=None):
         super().__init__((590, 690), parent)
-        self.setWindowTitle("DataDesk · Sonuçları dışa aktar")
+        self.setWindowTitle(tr("DataDesk · Sonuçları dışa aktar"))
         layout = self.content_layout
-        title = wrapped_label(f"{count:,} satırı dışa aktar", "sectionTitle")
+        title = wrapped_label(tr("{count:,} satırı dışa aktar", count=count), "sectionTitle")
         layout.addWidget(title)
         note = wrapped_label(
-            "Geçerli filtreler ve sıralama çıktıya uygulanır. Boş sonuçlarda da sütun başlıkları korunur.",
+            tr(
+                "Geçerli filtreler ve sıralama çıktıya uygulanır. Boş sonuçlarda da sütun başlıkları korunur."
+            ),
             "muted",
         )
         layout.addWidget(note)
@@ -288,36 +298,38 @@ class ExportDialog(ScrollableDialog):
         self.options_form = form
         self.format = combo(
             [
-                ("Excel çalışma kitabı (.xlsx)", ".xlsx"),
+                (tr("Excel çalışma kitabı (.xlsx)"), ".xlsx"),
                 ("CSV (.csv)", ".csv"),
-                ("Sekmeyle ayrılmış (.tsv)", ".tsv"),
-                ("Word tablosu (.docx)", ".docx"),
+                (tr("Sekmeyle ayrılmış (.tsv)"), ".tsv"),
+                (tr("Word tablosu (.docx)"), ".docx"),
             ]
         )
-        self.delimiter = combo(DELIMITERS[1:])
-        self.encoding = combo(ENCODINGS[1:])
-        self.safe_csv = QCheckBox("CSV formül güvenliği")
-        self.safe_csv.setAccessibleName("Formül gibi başlayan CSV metinlerini güvenli yaz")
+        self.delimiter = combo([(tr(label), value) for label, value in DELIMITERS[1:]])
+        self.encoding = combo([(tr(label), value) for label, value in ENCODINGS[1:]])
+        self.safe_csv = QCheckBox(tr("CSV formül güvenliği"))
+        self.safe_csv.setAccessibleName(tr("Formül gibi başlayan CSV metinlerini güvenli yaz"))
         self.safe_csv.setChecked(True)
         self.safe_csv.setToolTip(
-            "CSV/TSV metinlerinde =, +, -, @ ile başlayan değerlerin önüne ' eklenir. Sayısal hücreler değişmez. Birebir metin çıktısı için kapatın."
+            tr(
+                "CSV/TSV metinlerinde =, +, -, @ ile başlayan değerlerin önüne ' eklenir. Sayısal hücreler değişmez. Birebir metin çıktısı için kapatın."
+            )
         )
-        form.addRow("Dosya biçimi", self.format)
-        form.addRow("CSV ayırıcısı", self.delimiter)
-        form.addRow("Metin kodlaması", self.encoding)
+        form.addRow(tr("Dosya biçimi"), self.format)
+        form.addRow(tr("CSV ayırıcısı"), self.delimiter)
+        form.addRow(tr("Metin kodlaması"), self.encoding)
         form.addRow(self.safe_csv)
         layout.addLayout(form)
         self.csv_safety_note = wrapped_label(
-            "Güvenli CSV çıktısı, formül gibi başlayan metinlere tek tırnak ekler.", "muted"
+            tr("Güvenli CSV çıktısı, formül gibi başlayan metinlere tek tırnak ekler."), "muted"
         )
         layout.addWidget(self.csv_safety_note)
         row = QHBoxLayout()
-        columns_caption = wrapped_label("ÇIKTIDAKİ SÜTUNLAR")
+        columns_caption = wrapped_label(tr("ÇIKTIDAKİ SÜTUNLAR"))
         columns_caption.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         row.addWidget(columns_caption, 1)
-        select = QPushButton("Tümünü seç")
+        select = QPushButton(tr("Tümünü seç"))
         select.clicked.connect(lambda: self.check_all(Qt.CheckState.Checked))
-        clear = QPushButton("Seçimi kaldır")
+        clear = QPushButton(tr("Seçimi kaldır"))
         clear.clicked.connect(lambda: self.check_all(Qt.CheckState.Unchecked))
         row.addWidget(select)
         row.addWidget(clear)
@@ -334,7 +346,7 @@ class ExportDialog(ScrollableDialog):
             item.setCheckState(Qt.CheckState.Checked)
             self.columns.addItem(item)
         layout.addWidget(self.columns, 1)
-        hint = wrapped_label("Sütunları sürükleyerek çıktıdaki sırayı değiştirebilirsiniz.", "muted")
+        hint = wrapped_label(tr("Sütunları sürükleyerek çıktıdaki sırayı değiştirebilirsiniz."), "muted")
         layout.addWidget(hint)
         self.error = wrapped_label("", "error")
         self.error.hide()
@@ -342,8 +354,8 @@ class ExportDialog(ScrollableDialog):
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Save
         )
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Vazgeç")
-        buttons.button(QDialogButtonBox.StandardButton.Save).setText("Konum seç ve kaydet")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(tr("Vazgeç"))
+        buttons.button(QDialogButtonBox.StandardButton.Save).setText(tr("Konum seç ve kaydet"))
         buttons.button(QDialogButtonBox.StandardButton.Save).setObjectName("primary")
         buttons.accepted.connect(self.validate)
         buttons.rejected.connect(self.reject)
@@ -374,7 +386,7 @@ class ExportDialog(ScrollableDialog):
 
     def validate(self):
         if not self.selected_columns():
-            self.error.setText("En az bir sütun seçin.")
+            self.error.setText(tr("En az bir sütun seçin."))
             self.error.show()
             return
         self.accept()
@@ -385,15 +397,16 @@ class ExportDialog(ScrollableDialog):
             delimiter="\t" if self.format.currentData() == ".tsv" else self.delimiter.currentData(),
             encoding=self.encoding.currentData(),
             safe_csv=self.safe_csv.isChecked(),
+            sheet_name=tr("Sonuçlar"),
         )
 
 
 class RowDialog(ScrollableDialog):
     def __init__(self, columns, parent=None):
         super().__init__((560, 560), parent)
-        self.setWindowTitle("DataDesk · Satır ekle")
+        self.setWindowTitle(tr("DataDesk · Satır ekle"))
         layout = self.content_layout
-        layout.addWidget(wrapped_label("Boş bırakılan hücreler boş olarak kaydedilir.", "muted"))
+        layout.addWidget(wrapped_label(tr("Boş bırakılan hücreler boş olarak kaydedilir."), "muted"))
         form = QVBoxLayout()
         form.setSpacing(14)
         self.entries = {}
@@ -416,8 +429,8 @@ class RowDialog(ScrollableDialog):
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok
         )
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Vazgeç")
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Satır ekle")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(tr("Vazgeç"))
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(tr("Satır ekle"))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         self.finish_with(buttons)

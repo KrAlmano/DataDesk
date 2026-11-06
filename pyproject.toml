@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "datadesk"
-version = "1.1.0"
+version = "1.2.0"
 description = "Excel ve CSV dosyaları için yerel masaüstü filtreleme ve düzenleme aracı"
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
@@ -43,7 +43,7 @@ Issues = "https://github.com/KrAlmano/DataDesk/issues"
 include = ["datadesk*"]
 
 [tool.setuptools.package-data]
-datadesk = ["assets/*.svg", "assets/fonts/*.ttf", "assets/fonts/*.txt"]
+datadesk = ["assets/*.svg", "assets/fonts/*.ttf", "assets/fonts/*.txt", "assets/qt/*.qm"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -101,6 +101,7 @@ jobs:
             build/windows-install-test/*
             docs/screenshot.png
             docs/screenshot-compact.png
+            docs/screenshots/*.png
           if-no-files-found: error
           retention-days: 30
       - name: Preserve failure details

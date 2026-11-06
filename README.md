@@ -1,5 +1,7 @@
 # DataDesk
 
+[Türkçe](README.md) · [English](README.en.md)
+
 DataDesk, Excel ve CSV ile çalışanlar için yerel bir dosya ve tablo çalışma alanıdır. Klasör oluşturun, yeni bir tablo açın, dosyalarınızı düzenleyin; gerektiğinde filtreleyip ayrı bir çıktı alın.
 
 [![Testler](https://github.com/KrAlmano/DataDesk/actions/workflows/tests.yml/badge.svg)](https://github.com/KrAlmano/DataDesk/actions/workflows/tests.yml)
@@ -11,7 +13,7 @@ DataDesk, Excel ve CSV ile çalışanlar için yerel bir dosya ve tablo çalış
 
 ## Çalışma alanı
 
-DataDesk 1.1.0 dosya ve klasörlerle başlar. Solda klasörler, **Dosyalar** sekmesinde o klasörün içeriği bulunur. Açılan tablo ayrı bir sekmede gösterilir; filtre paneli ihtiyaç duyduğunuzda açılır. macOS ve Windows aynı sade arayüzü ve gömülü Inter yazı tipini kullanır.
+DataDesk 1.2.0 dosya ve klasörlerle başlar. Solda klasörler, **Dosyalar** sekmesinde o klasörün içeriği bulunur. Açılan tablo ayrı bir sekmede gösterilir; filtre paneli ihtiyaç duyduğunuzda açılır. macOS ve Windows aynı sade arayüzü ve gömülü Inter yazı tipini kullanır.
 
 - **Klasörler:** Alt klasör oluşturma, yeniden adlandırma ve çalışma alanının içinde taşıma.
 - **Yeni dosya:** Adını, biçimini ve sütun adlarını belirleyerek gerçek `.xlsx`, `.csv` veya `.tsv` dosyası oluşturma.
@@ -20,6 +22,7 @@ DataDesk 1.1.0 dosya ve klasörlerle başlar. Solda klasörler, **Dosyalar** sek
 - **Filtre ve arama:** Metin, sayı, tarih, boş/dolu koşulları; birden çok koşulu VE/VEYA ile birleştirme; bütün tabloda arama ve türüne göre sıralama.
 - **Çıktı:** Filtre sonucunun tüm satırlarını, seçilen sütun ve sırayla Excel, CSV, TSV veya Word'e aktarma.
 - **Excel ile birlikte kullanma:** Dosyayı bilgisayarınızdaki Excel veya varsayılan tablo uygulamasında açma.
+- **Görünüm ve dil:** Açık, koyu veya sistem teması; Türkçe/İngilizce arayüz; %75–150 arayüz boyutu. Tercihler anında uygulanır ve sonraki açılışta hatırlanır.
 
 Çalışma klasörü varsayılan olarak **Belgeler / DataDesk** konumundadır; başka bir klasör seçebilirsiniz. Bunlar diskteki normal dosya ve klasörlerdir: DataDesk kapalıyken de Finder/Explorer ve Excel'den kullanılabilir. Dosyalar bir sunucuya yüklenmez.
 
@@ -33,15 +36,23 @@ DataDesk 1.1.0 dosya ve klasörlerle başlar. Solda klasörler, **Dosyalar** sek
 
 Dışarıdan açılan dosyalarda **Kaydet**, yeni dosya oluşturma akışına yönlendirir. Kaynak çalışma kitabının diğer sayfalarını, formüllerini veya biçimlerini bir tablo kaydıyla değiştirmez. DataDesk dosyanızı Excel gibi başka bir uygulamada değiştirdiğinizi fark ederse aynı dosyanın üzerine kaydetmez; yeni bir ad ister.
 
+### Açık/koyu tema ve İngilizce arayüz
+
+Üstteki **Ayarlar** düğmesinden tema, dil ve arayüz boyutunu seçip **Uygula** düğmesine basın. **Sistem**, işletim sisteminin açık/koyu görünümünü izler. Dil değiştirirken açık tablo, hücre içerikleri, sütun adları, filtreler ve düzenleme geçmişi korunur; yalnızca arayüz metinleri değişir. `Cmd+,` (macOS) veya `Ctrl+,` (Windows) ile ayarları açabilirsiniz.
+
+![DataDesk koyu temada filtrelenmiş tablo](docs/screenshots/10-dark.png)
+
+[İngilizce arayüz](docs/screenshots/11-english.png) · [Ayarlar penceresi](docs/screenshots/12-settings.png) · [Koyu çalışma alanı](docs/screenshots/13-workspace-dark.png)
+
 ## Kurulum
 
 [GitHub Releases](https://github.com/KrAlmano/DataDesk/releases/latest) sayfasından işletim sisteminize uygun paketi indirin. Hazır paket için **Python, uv veya Microsoft Excel kurulumu gerekmez**.
 
 | Sistem | Paket | Kurulum |
 | --- | --- | --- |
-| macOS 14+, Apple Silicon (M serisi) | `DataDesk-…-macos-arm64.dmg` | DataDesk.app'i Applications klasörüne sürükleyin. |
-| macOS 14+, Intel | `DataDesk-…-macos-x86_64.dmg` | Intel paketindeki DataDesk.app'i Applications'a sürükleyin. |
-| Windows 10 1809+ / Windows 11, x64 | `DataDesk-…-windows-x64-setup.exe` | Kurucuyu çalıştırın; Başlat menüsünden DataDesk'i açın. Yönetici yetkisi gerekmez. |
+| macOS 14+, Apple Silicon (M serisi) | [DataDesk 1.2.0 · ARM64 DMG](https://github.com/KrAlmano/DataDesk/releases/download/v1.2.0/DataDesk-1.2.0-macos-arm64.dmg) | DataDesk.app'i Applications klasörüne sürükleyin. |
+| macOS 14+, Intel | [DataDesk 1.2.0 · Intel DMG](https://github.com/KrAlmano/DataDesk/releases/download/v1.2.0/DataDesk-1.2.0-macos-x86_64.dmg) | Intel paketindeki DataDesk.app'i Applications'a sürükleyin. |
+| Windows 10 1809+ / Windows 11, x64 | [DataDesk 1.2.0 · Windows kurucusu](https://github.com/KrAlmano/DataDesk/releases/download/v1.2.0/DataDesk-1.2.0-windows-x64-setup.exe) | Kurucuyu çalıştırın; Başlat menüsünden DataDesk'i açın. Yönetici yetkisi gerekmez. |
 
 Paketlerle birlikte SHA-256 doğrulama dosyaları yayımlanır. macOS paketleri Apple Developer ID ile imzalanmış/noter onaylı değildir; Windows kurucusunda yayıncı sertifikası yoktur. İlk açılışta işletim sistemi onayı gerekebilir. Ayrıntılar: [macOS](docs/MACOS.md) · [Windows](docs/WINDOWS.md).
 

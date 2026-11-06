@@ -8,6 +8,7 @@ import sys
 import sysconfig
 import tomllib
 from PyInstaller.utils.hooks import copy_metadata
+from PySide6.QtCore import QLibraryInfo
 
 root = Path(os.environ["DATADESK_BUILD_ROOT"])
 version = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
@@ -15,6 +16,13 @@ is_mac = sys.platform == "darwin"
 sign_identity = os.environ.get("MACOS_SIGN_IDENTITY") or None
 icon = root / "build" / "icons" / ("datadesk.icns" if is_mac else "datadesk.ico")
 metadata = []
+qt_translations = []
+translation_directory = Path(QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath))
+for language in ("tr", "en"):
+    translation = translation_directory / f"qtbase_{language}.qm"
+    if not translation.is_file():
+        raise FileNotFoundError(f"Required Qt translation is missing: {translation}")
+    qt_translations.append((str(translation), "datadesk/assets/qt"))
 for distribution in ("PySide6-Essentials", "shiboken6", "pandas", "numpy", "openpyxl", "xlrd", "python-docx", "lxml", "python-dateutil", "tzdata"):
     metadata += copy_metadata(distribution)
 for candidate in (Path(sys.base_prefix) / "LICENSE.txt", Path(sysconfig.get_path("stdlib")) / "LICENSE.txt"):
@@ -26,7 +34,7 @@ analysis = Analysis(
     [str(root / "main.py")],
     pathex=[str(root)],
     binaries=[],
-    datas=[(str(root / "datadesk" / "assets"), "datadesk/assets"), (str(root / "LICENSE"), "."), (str(root / "packaging" / "THIRD_PARTY_NOTICES.txt"), "."), *metadata],
+    datas=[(str(root / "datadesk" / "assets"), "datadesk/assets"), (str(root / "LICENSE"), "."), (str(root / "packaging" / "THIRD_PARTY_NOTICES.txt"), "."), *qt_translations, *metadata],
     hiddenimports=["PySide6.QtSvg", "openpyxl", "xlrd", "docx"],
     hookspath=[],
     hooksconfig={},

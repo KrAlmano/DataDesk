@@ -2,7 +2,7 @@
 ; The stable AppId intentionally stays the same across application versions.
 #define RepoRoot AddBackslash(SourcePath) + "..\.."
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #define AppVersion "1.2.0"
 #endif
 #ifndef AppSourceDir
   #define AppSourceDir RepoRoot + "\dist\DataDesk"
@@ -19,7 +19,7 @@ AppVerName=DataDesk {#AppVersion}
 AppPublisher=KrAlmano
 AppPublisherURL=https://github.com/KrAlmano/DataDesk
 AppSupportURL=https://github.com/KrAlmano/DataDesk/issues
-AppUpdatesURL=https://github.com/KrAlmano/DataDesk/actions/workflows/desktop-packages.yml
+AppUpdatesURL=https://github.com/KrAlmano/DataDesk/releases/latest
 VersionInfoVersion={#AppVersion}
 DefaultDirName={localappdata}\Programs\DataDesk
 DefaultGroupName=DataDesk

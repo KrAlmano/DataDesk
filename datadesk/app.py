@@ -5,13 +5,14 @@ import json
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QLocale
+from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from .ui import MainWindow
 from .theme import configure_app
 from . import __version__
+from .i18n import set_language
 from .platforms import APP_ID, FileOpenRouter, configure_platform_application
 
 
@@ -48,6 +49,7 @@ def main(argv=None):
             print(f"DataDesk {__version__}")
         return 0
     configure_platform_application()
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_DontUseNativeDialogs, True)
     app = QApplication.instance() or QApplication([sys.argv[0]])
     app.setApplicationName("DataDesk")
     app.setApplicationDisplayName("DataDesk")
@@ -56,8 +58,11 @@ def main(argv=None):
     app.setOrganizationDomain("KrAlmano.github.io")
     app.setDesktopFileName(APP_ID)
     app.setWindowIcon(QIcon(str(Path(__file__).parent / "assets" / "icon.svg")))
-    configure_app(app)
-    QLocale.setDefault(QLocale(QLocale.Language.Turkish, QLocale.Country.Turkey))
+    settings = QSettings("DataDesk", "DataDesk")
+    theme = str(settings.value("ui_theme", "light"))
+    language = str(settings.value("ui_language", "tr"))
+    configure_app(app, theme if theme in {"light", "dark", "system"} else "light")
+    set_language(language if language in {"tr", "en"} else "tr")
     if arguments.smoke_test:
         return _smoke_report(app, arguments.smoke_test)
     router = FileOpenRouter(app)

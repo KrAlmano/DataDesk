@@ -17,6 +17,8 @@ from typing import Iterable
 
 import pandas as pd
 
+from .translations_engine import tr
+
 
 class ColumnKind(str, Enum):
     TEXT = "text"
@@ -51,6 +53,19 @@ def normalize_text(value: object) -> str:
     return display_value(value).translate(str.maketrans({"İ": "i", "I": "i", "ı": "i"})).casefold()
 
 
+def _text_matches(value: object, query: str, operator: str = "contains") -> bool:
+    """Match native boolean labels in either language; string cells stay literal."""
+    if pd.api.types.is_bool(value):
+        labels = ("evet", "yes", "true") if value else ("hayir", "no", "false")
+    else:
+        labels = (normalize_text(value),)
+    if operator == "starts_with":
+        return any(label.startswith(query) for label in labels)
+    if operator == "ends_with":
+        return any(label.endswith(query) for label in labels)
+    return any(query in label for label in labels)
+
+
 def display_value(value: object) -> str:
     if _missing(value):
         return ""
@@ -78,7 +93,7 @@ _CURRENCY = re.compile(r"(?i)^(?:TRY|USD|EUR|GBP|TL|₺|\$|€|£)\s*|\s*(?:TRY|
 
 def _validate_number_format(number_format: str) -> None:
     if number_format not in {"auto", "tr", "us"}:
-        raise ValueError("Geçersiz sayı biçimi; Otomatik, Türkçe veya İngilizce seçin.")
+        raise ValueError(tr("Geçersiz sayı biçimi; Otomatik, Türkçe veya İngilizce seçin."))
 
 
 def _localized_number_text(text: str, number_format: str) -> str | None:
@@ -280,7 +295,7 @@ def _kind(series: pd.Series, kind: str | ColumnKind) -> ColumnKind:
     try:
         return ColumnKind(kind)
     except ValueError as error:
-        raise ValueError("Geçersiz sütun türü.") from error
+        raise ValueError(tr("Geçersiz sütun türü.")) from error
 
 
 def _keys(series: pd.Series, kind: ColumnKind, number_format: str = "auto") -> pd.Series:
@@ -299,20 +314,23 @@ def _operand(value: object, kind: ColumnKind, number_format: str = "auto") -> ob
     if kind == ColumnKind.NUMBER:
         parsed = _number_decimal(value, number_format)
         if parsed is None:
-            examples = {"auto": "1234,56 veya 1234.56", "tr": "1.234,56", "us": "1,234.56"}
+            examples = {"auto": tr("1234,56 veya 1234.56"), "tr": "1.234,56", "us": "1,234.56"}
             raise ValueError(
-                f"Seçili sayı biçimine uygun bir değer girin (örnek: {examples[number_format]})."
+                tr(
+                    "Seçili sayı biçimine uygun bir değer girin (örnek: {example}).",
+                    example=examples[number_format],
+                )
             )
         return parsed
     if kind == ColumnKind.DATE:
         parsed = parse_date(value)
         if parsed is None:
-            raise ValueError("Geçerli bir tarih girin (örnek: 31.12.2026 veya 2026-12-31).")
+            raise ValueError(tr("Geçerli bir tarih girin (örnek: 31.12.2026 veya 2026-12-31)."))
         return parsed
     if kind == ColumnKind.BOOLEAN:
         parsed = _boolean(value)
         if parsed is None:
-            raise ValueError("Evet / Hayır veya True / False girin.")
+            raise ValueError(tr("Evet / Hayır veya True / False girin."))
         return parsed
     return normalize_text(value)
 
@@ -330,17 +348,12 @@ def _rule_mask(series: pd.Series, rule: FilterRule, kind: ColumnKind | None = No
     if op == "not_empty":
         return ~empty
     if op in {"contains", "not_contains", "starts_with", "ends_with", "all_words", "any_words", "in"}:
-        text = series.map(normalize_text)
         value = normalize_text(rule.value)
         if not value.strip():
-            raise ValueError("Filtre değeri boş bırakılamaz.")
-        if op in {"contains", "not_contains"}:
-            mask = text.str.contains(value, regex=False, na=False) & ~empty
+            raise ValueError(tr("Filtre değeri boş bırakılamaz."))
+        if op in {"contains", "not_contains", "starts_with", "ends_with"}:
+            mask = series.map(lambda cell: _text_matches(cell, value, op)) & ~empty
             return ~mask if op == "not_contains" else mask
-        if op == "starts_with":
-            return text.str.startswith(value, na=False) & ~empty
-        if op == "ends_with":
-            return text.str.endswith(value, na=False) & ~empty
         if op == "in":
             current_kind = kind or _kind(series, rule.kind)
             # A semicolon/newline list preserves decimal commas in every
@@ -350,26 +363,26 @@ def _rule_mask(series: pd.Series, rule: FilterRule, kind: ColumnKind | None = No
             separator = r"[\n;]" if preferred or localized_number else ","
             terms = [term.strip() for term in re.split(separator, value) if term.strip()]
             if not terms:
-                raise ValueError("En az bir eşleşme değeri girin.")
+                raise ValueError(tr("En az bir eşleşme değeri girin."))
             # Exact selections use the selected column kind, including numbers.
             keys = _keys(series, current_kind, rule.number_format)
             return keys.isin([_operand(term, current_kind, rule.number_format) for term in terms]) & ~empty
         terms = [term for term in re.split(r"[\s,]+", value.strip()) if term]
-        masks = [text.str.contains(term, regex=False, na=False) & ~empty for term in terms]
+        masks = [series.map(lambda cell: _text_matches(cell, term)) & ~empty for term in terms]
         result = masks[0]
         for mask in masks[1:]:
             result = result & mask if op == "all_words" else result | mask
         return result
     if op not in {"equals", "not_equals", "between", "gt", "gte", "lt", "lte"}:
-        raise ValueError(f"Bilinmeyen filtre işlemi: {op}")
+        raise ValueError(tr("Bilinmeyen filtre işlemi: {operator}", operator=op))
     current_kind = kind or _kind(series, rule.kind)
     if op in {"between", "gt", "gte", "lt", "lte"} and current_kind not in {
         ColumnKind.NUMBER,
         ColumnKind.DATE,
     }:
-        raise ValueError("Aralık ve büyüklük filtreleri için Sayı veya Tarih türünü seçin.")
+        raise ValueError(tr("Aralık ve büyüklük filtreleri için Sayı veya Tarih türünü seçin."))
     if _empty(rule.value):
-        raise ValueError("Filtre değeri boş bırakılamaz; boş hücreler için 'Boş' filtresini kullanın.")
+        raise ValueError(tr("Filtre değeri boş bırakılamaz; boş hücreler için 'Boş' filtresini kullanın."))
     keys = _keys(series, current_kind, rule.number_format)
     first = _operand(rule.value, current_kind, rule.number_format)
     if op in {"equals", "not_equals"}:
@@ -380,10 +393,10 @@ def _rule_mask(series: pd.Series, rule: FilterRule, kind: ColumnKind | None = No
         return ~mask if op == "not_equals" else mask
     if op == "between":
         if _empty(rule.value2):
-            raise ValueError("Aralığın başlangıcını ve bitişini girin.")
+            raise ValueError(tr("Aralığın başlangıcını ve bitişini girin."))
         last = _operand(rule.value2, current_kind, rule.number_format)
         if first > last:
-            raise ValueError("Aralık başlangıcı bitişten büyük olamaz.")
+            raise ValueError(tr("Aralık başlangıcı bitişten büyük olamaz."))
         if current_kind == ColumnKind.DATE and _date_only(rule.value2):
             return (keys >= first) & (keys < last.normalize() + pd.Timedelta(days=1))
         return keys.between(first, last, inclusive="both")
@@ -403,15 +416,15 @@ def apply_filters(
 ) -> pd.DataFrame:
     """Combine explicit rules with AND/OR, then apply literal global search."""
     if match not in {"all", "any"}:
-        raise ValueError("Filtre birleştirme türü 'all' veya 'any' olmalıdır.")
+        raise ValueError(tr("Filtre birleştirme türü 'all' veya 'any' olmalıdır."))
     combined = None
     inferred: dict[tuple[str, str], ColumnKind] = {}
     for rule in rules:
         if rule.column not in df.columns:
-            raise ValueError(f"Sütun bulunamadı: {rule.column}")
+            raise ValueError(tr("Sütun bulunamadı: {column}", column=rule.column))
         series = df[rule.column]
         if not isinstance(series, pd.Series):
-            raise ValueError("Aynı adlı sütunlar önce benzersiz adlarla içe aktarılmalıdır.")
+            raise ValueError(tr("Aynı adlı sütunlar önce benzersiz adlarla içe aktarılmalıdır."))
         key = (rule.column, rule.kind)
         # Inference always uses the full source, never an already filtered subset.
         if key not in inferred:
@@ -427,7 +440,7 @@ def apply_filters(
     if query:
         search_mask = pd.Series(False, index=df.index, dtype=bool)
         for column in df.columns:
-            search_mask |= df[column].map(normalize_text).str.contains(query, regex=False, na=False)
+            search_mask |= df[column].map(lambda value: _text_matches(value, query))
         combined &= search_mask
     return df.loc[combined].copy()
 
@@ -441,10 +454,10 @@ def sort_frame(
 ) -> pd.DataFrame:
     _validate_number_format(number_format)
     if column not in df.columns:
-        raise ValueError(f"Sütun bulunamadı: {column}")
+        raise ValueError(tr("Sütun bulunamadı: {column}", column=column))
     series = df[column]
     if not isinstance(series, pd.Series):
-        raise ValueError("Aynı adlı sütunlar önce benzersiz adlarla içe aktarılmalıdır.")
+        raise ValueError(tr("Aynı adlı sütunlar önce benzersiz adlarla içe aktarılmalıdır."))
     current_kind = _kind(series, kind)
     keys = _keys(series, current_kind, number_format)
     keys = keys.mask(series.map(_empty))

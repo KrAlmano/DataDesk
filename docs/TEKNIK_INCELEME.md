@@ -1,6 +1,14 @@
 # DataDesk teknik notları
 
-Bu belge DataDesk 1.1.0'ın dosya, kayıt ve doğrulama davranışını açıklar. Güncel test sonucu için [Tests](https://github.com/KrAlmano/DataDesk/actions/workflows/tests.yml) ve [Desktop packages](https://github.com/KrAlmano/DataDesk/actions/workflows/desktop-packages.yml) çalışmalarını inceleyin. Bir hedefte alınan sonuç başka bir işletim sisteminin doğrulaması olarak sunulmaz.
+Bu belge DataDesk 1.2.0'ın dosya, kayıt ve doğrulama davranışını açıklar. Güncel test sonucu için [Tests](https://github.com/KrAlmano/DataDesk/actions/workflows/tests.yml) ve [Desktop packages](https://github.com/KrAlmano/DataDesk/actions/workflows/desktop-packages.yml) çalışmalarını inceleyin. Bir hedefte alınan sonuç başka bir işletim sisteminin doğrulaması olarak sunulmaz.
+
+## 1.2.0: kalıcı görünüm ve dil tercihleri
+
+**Ayarlar**, Türkçe/İngilizce arayüz, açık/koyu/sistem teması ve arayüz boyutu sunar. Tercihler `QSettings` ile saklanır. **Uygula** seçimi anında etkinleştirir; **Vazgeç** uygulama durumunu değiştirmez. Sistem teması Qt'nin işletim sistemi görünüm bildirimini izler; sistemin kendi görünüm ayarı değiştirilmez.
+
+Tema, semantik renk paleti ve ortak stil şablonuyla menü, form, dosya listesi, tablo, hücre editörü ve durum mesajlarına uygulanır. Açık/koyu paletlerde gövde, ikincil, seçili, devre dışı ve uyarı metinlerinin kontrastı test edilir. Aynı ölçekleme kuralları iki temada da geçerlidir.
+
+Çeviri anahtarları açıkça tanımlanır; kullanıcı verisi çeviri anahtarı olarak kullanılmaz. Dil değişiminde görünüm yeniden kurulur; çalışma belgesi, kaynak hücreler, sütun adları, filtreler, arama ve düzenleme geçmişi korunur. Sayı ayrıştırma tercihi arayüz dilinden bağımsızdır. Qt dosya/dizin seçim pencereleri de uygulamanın dil ve temasını kullanır.
 
 ## 1.1.0: dosya ve klasörlerle çalışma
 
@@ -46,7 +54,7 @@ Formül hesaplama, makro çalıştırma veya kaynak Excel'in tüm biçimlerini y
 
 ## Arayüz ve platformlar
 
-PySide6, ortak Fusion teması ve gömülü Inter yazı tipi kullanılır. Açık gri uygulama alanı, beyaz tablo/dosya listesi ve tek mavi vurgu iki sistemde aynıdır. `platforms.py`, Cmd/Ctrl kısayol adlarını, macOS dosya açma olaylarını ve Windows görev çubuğu kimliğini yönetir. Sistem klasörleri Qt'den alınır; Windows'ta `~/Documents` veya `~/Desktop` yolu varsayılmaz.
+PySide6, ortak Fusion stili ve gömülü Inter yazı tipi kullanılır. Açık tema açık gri/beyaz, koyu tema gri/lacivert yüzeyler ve mavi vurgu kullanır; aynı görünüm iki sistemde de uygulanır. `platforms.py`, Cmd/Ctrl kısayol adlarını, macOS dosya açma olaylarını ve Windows görev çubuğu kimliğini yönetir. Sistem klasörleri Qt'den alınır; Windows'ta `~/Documents` veya `~/Desktop` yolu varsayılmaz.
 
 Dar pencerede kenar çubuğu gizlenir; dosya görünümünden gezinme sürer. Filtreler, tabloyu kullanılmaz hale getirmek yerine ayrı görünümde açılır. Geniş pencerede tablo ve filtre paneli yan yana kullanılabilir. Kullanıcı büyüklüğü %75–150 aralığındadır; cihaz DPI ölçeği Qt tarafından ayrıca işlenir. Uzun dosya/sütun adları ve formlar için kısaltma, kaydırma ve sabit son işlem düğmeleri kullanılır.
 
@@ -65,6 +73,7 @@ Testler gerçek dosyaları geçici klasörlerde üretir ve yeniden okur. Kaynakl
 - **Dosya biçimleri:** Gerçek Excel/CSV/TSV, kodlamalar, ayraçlar, tırnak/yeni satır içeren hücreler, başlık/sayfa seçimi ve bozuk dosyalar.
 - **Çıktı:** Sütun seçimi/sırası, tüm sonuçlar, sıfır satır, yerel sayı/tarih tipleri, formül gibi başlayan metinler ve hata halinde mevcut hedefin korunması.
 - **Qt arayüzü:** Dosya gezinme, tablo işlemleri, bekleyen arama ve görevler, değişikliklerin geri alınması, dar/geniş pencere ve büyüklükte erişilebilir kontroller.
+- **Tema ve dil:** Açık/koyu paletlerin okunabilirliği, gerçek hücre editörleri ve diyaloglarda tema geçişi, İngilizce/Türkçe metinler, %150 boyutta ayarlar ve onay/vazgeç davranışları; canlı dil değişiminde veri ve görünüm durumunun korunması.
 
 Yerel çalıştırma:
 
@@ -77,7 +86,7 @@ QT_QPA_PLATFORM=offscreen uv run --extra dev pytest -q
 
 PowerShell'de önce `$env:QT_QPA_PLATFORM = "offscreen"` ayarlayın. Gerçek masaüstü pencere sistemiyle çalıştırmak için bu değişkeni kaldırın. `tools/benchmark.py`, 100.000 satır × 8 sütun CSV üzerinde bağımsız beklenen filtre sonucunu Excel'e aktarıp yeniden okuyarak kontrol eder; işlem süresi bir performans garantisi değildir.
 
-Ekran görüntüleri `uv run python tools/capture_screenshots.py` ile yeniden oluşturulur. Araç gerçek Qt pencerelerini, geçici bir çalışma alanını ve yapay örnek verileri kullanır. Geçici INI ayarları gerçek kullanıcı tercihleri ve son dosyaların görüntülere karışmasını önler. Alternatif çıktı dizini: `--output-dir <klasör>`. Görseller [kullanım kılavuzundadır](KULLANIM.md).
+Ekran görüntüleri `uv run python tools/capture_screenshots.py` ile yeniden oluşturulur. Araç gerçek Qt pencerelerini, geçici bir çalışma alanını ve yapay örnek verileri kullanır; ekran görüntülerinin piksel içeriği düzenlenmez. Geçici INI ayarları gerçek kullanıcı tercihleri ve son dosyaların görüntülere karışmasını önler. Aynı belge üzerinde açık/koyu tema ve İngilizce arayüz yakalanırken filtre sayısı, sonuç satırları ve kaynak verinin değişmediği doğrulanır. Alternatif çıktı dizini: `--output-dir <klasör>`. Görseller [Türkçe](KULLANIM.md) ve [İngilizce](USAGE.en.md) kılavuzdadır.
 
 ## Yerel kurulum paketlerinin doğrulanması
 
@@ -101,6 +110,7 @@ macOS paketleri ad hoc imzalıdır; Apple Developer ID ve noter onayı sağlanma
 8. Seçilen sütunlarla XLSX ve CSV çıktısı alın; yeniden açıp tüm sonuçları, sütun sırasını ve değerleri karşılaştırın. Sıfır sonuçta başlıkların kalmasını kontrol edin.
 9. Bozuk dosya ve yazılamayan hedef deneyin; önceki belge korunmalı, açık hata gösterilmelidir. Düzenlemeden sonra dosya değiştirme/kapatma uyarısını kontrol edin.
 10. Dar/geniş pencere ve büyük yazıda dosya gezinme, filtreler, kaydet/dışa aktar ve uzun başlıkları deneyin. Arka plan görevi sürerken pencere yanıt vermeli ve veri durumu tutarlı kalmalıdır.
+11. Bir hücreyi değiştirin, filtre ve arama ekleyin. Ayarlardan dili ve temayı değiştirin; veriler, sütunlar, filtreler ve geri alma geçmişi korunmalıdır. İki dil/tema ile içe aktarma, düzenleme ve çıktı pencerelerini açın. **Vazgeç** ile tercihin değişmediğini, yeniden açılışta uygulanan tercihlerin hatırlandığını doğrulayın. Sistem temasında işletim sistemi görünümünü değiştirerek canlı geçişi kontrol edin.
 
 ## Dosya yapısı
 
@@ -110,6 +120,7 @@ macOS paketleri ad hoc imzalıdır; Apple Developer ID ve noter onayı sağlanma
 | `workspace.py` | Gerçek klasör/dosya işlemleri ve doğrudan kaydedilebilir tablo kaydı |
 | `workspace_widgets.py`, `workspace_ui.py` | Dosya görünümü ve çalışma alanı kullanıcı işlemleri |
 | `ui.py`, `dialogs.py`, `widgets.py`, `theme.py` | Ana pencere, form akışları ve ortak görünüm |
+| `preferences.py`, `settings_ui.py`, `i18n.py`, `translations_*.py` | Kalıcı tercihler, ayarlar, canlı tema/dil geçişi ve çeviri katalogları |
 | `models.py` | Kaynak çalışma belgesi, düzenleme geçmişi ve Qt tablo modeli |
 | `core.py`, `io.py` | Tür/filtre/sıralama kuralları ve atomik dosya okuma/yazma |
 | `smoke.py`, `packaging/` | Gömülü uygulama testi ve ayrı platform kurucuları |

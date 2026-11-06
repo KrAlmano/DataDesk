@@ -62,9 +62,9 @@ def test_folder_activation_up_and_back_use_real_paths(qtbot, browser):
     assert browser.current_directory == root / "2026"
     assert browser.breadcrumb.text() == "Çalışmalar / 2026"
     assert browser.empty_label.isVisible()
-    browser.go_up()
+    qtbot.mouseClick(browser.up_button, Qt.MouseButton.LeftButton)
     assert browser.current_directory == root
-    browser.go_back()
+    qtbot.mouseClick(browser.back_button, Qt.MouseButton.LeftButton)
     assert browser.current_directory == root / "2026"
     browser.go_back()
     assert browser.current_directory == root
@@ -252,3 +252,30 @@ def test_names_are_plain_text_and_long_names_do_not_enlarge_browser(browser):
     item = item_for(browser, path.name)
     assert item.text(0) == path.name
     assert browser.width() == 900
+
+
+@pytest.mark.parametrize("inherited_zoom", [150, 200])
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_shrinking_after_font_change_uses_current_toolbar_size(qtbot, qapp, tmp_path, inherited_zoom, theme):
+    previous = qapp.styleSheet()
+    try:
+        qapp.setStyleSheet(scaled_style(inherited_zoom, theme))
+        browser = WorkspaceBrowser(tmp_path)
+        qtbot.addWidget(browser)
+        browser.resize(900, 600)
+        browser.show()
+        QApplication.processEvents()
+        # A live preference change can be followed immediately by a resize,
+        # before Qt has recomputed the layout's previous minimum width.
+        browser.setStyleSheet(scaled_style(100, theme))
+        browser.resize(400, 500)
+        QApplication.processEvents()
+        assert browser.width() == 400
+        for control in (browser.new_file_button, browser.more_button, browser.breadcrumb):
+            assert control.isVisible()
+            bounds = control.rect().translated(control.mapTo(browser, QPoint()))
+            assert browser.rect().contains(bounds)
+        assert browser.new_folder_action.isEnabled()
+        assert browser.import_action.isEnabled()
+    finally:
+        qapp.setStyleSheet(previous)

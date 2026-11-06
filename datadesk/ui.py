@@ -42,9 +42,11 @@ from PySide6.QtWidgets import (
 
 from .core import FilterRule, apply_filters, display_value, infer_kind, parse_date, parse_number, sort_frame
 from .dialogs import ExportDialog, ImportDialog, RowDialog, demo_frame
+from .i18n import join_tr
+from .translations_ui import tr
 from .io import ImportOptions, inspect_file, read_table, write_table
 from .models import Document, TableModel
-from .theme import scaled_style
+from .preferences import PreferencesActions
 from .widgets import ControlScrollArea, ElidedLabel, Notice
 from .platforms import default_export_directory, shortcut_label
 from .workspace_ui import WorkspaceActions
@@ -74,6 +76,7 @@ KIND_LABELS = {"text": "Metin", "number": "Sayı", "date": "Tarih", "boolean": "
 
 def label(text, name=None):
     widget = QLabel(text)
+    widget.setTextFormat(Qt.TextFormat.PlainText)
     if name:
         widget.setObjectName(name)
     return widget
@@ -89,7 +92,7 @@ def button(text, callback, name=None):
 
 
 class TaskSignals(QObject):
-    finished = Signal(int, object, str)
+    finished = Signal(int, object, object)
 
 
 class Task(QRunnable):
@@ -104,12 +107,13 @@ class Task(QRunnable):
         try:
             result = self.function()
         except Exception as exc:
-            self.signals.finished.emit(self.task_id, None, str(exc) or type(exc).__name__)
+            message = exc.args[0] if exc.args and isinstance(exc.args[0], str) else str(exc)
+            self.signals.finished.emit(self.task_id, None, message or type(exc).__name__)
         else:
             self.signals.finished.emit(self.task_id, result, "")
 
 
-class MainWindow(WorkspaceActions, QMainWindow):
+class MainWindow(PreferencesActions, WorkspaceActions, QMainWindow):
     def __init__(self, settings=None, workspace_root=None):
         super().__init__()
         self.setWindowTitle("DataDesk")
@@ -120,7 +124,7 @@ class MainWindow(WorkspaceActions, QMainWindow):
             self.zoom_percent = max(75, min(150, int(self.settings.value("ui_zoom", 100))))
         except (ValueError, TypeError):
             self.zoom_percent = 100
-        self.setStyleSheet(scaled_style(self.zoom_percent))
+        self._init_preferences()
         self.sidebar_compact = False
         self.compact_mode = False
         self._focus_filters = False
@@ -180,17 +184,19 @@ class MainWindow(WorkspaceActions, QMainWindow):
         self.sidebar_layout.setContentsMargins(14, 18, 14, 12)
         self.sidebar_layout.setSpacing(10)
         self.sidebar_layout.addWidget(label("DataDesk", "workspaceHeading"))
-        self.files_button = button("Dosyalar", self.show_files)
+        self.files_button = button(tr("Dosyalar"), self.show_files)
         self.sidebar_layout.addWidget(self.files_button)
-        self.open_button = button("Dosya aç…", self.open_file)
-        self.open_button.setToolTip("Excel, CSV veya TSV aç · " + shortcut_label("Ctrl+O"))
+        self.open_button = button(tr("Dosya aç…"), self.open_file)
+        self.open_button.setToolTip(
+            tr("Excel, CSV veya TSV aç · {shortcut}", shortcut=shortcut_label("Ctrl+O"))
+        )
         self.sidebar_layout.addWidget(self.open_button)
         folder_row = QHBoxLayout()
-        folder_row.addWidget(label("Klasörler", "sectionCaption"), 1)
+        folder_row.addWidget(label(tr("Klasörler"), "sectionCaption"), 1)
         self.workspace_menu_button = QToolButton()
         self.workspace_menu_button.setText("…")
-        self.workspace_menu_button.setToolTip("Çalışma klasörü seçenekleri")
-        self.workspace_menu_button.setAccessibleName("Çalışma klasörü seçenekleri")
+        self.workspace_menu_button.setToolTip(tr("Çalışma klasörü seçenekleri"))
+        self.workspace_menu_button.setAccessibleName(tr("Çalışma klasörü seçenekleri"))
         self.workspace_menu_button.clicked.connect(self._workspace_menu)
         folder_row.addWidget(self.workspace_menu_button)
         self.sidebar_layout.addLayout(folder_row)
@@ -201,7 +207,7 @@ class MainWindow(WorkspaceActions, QMainWindow):
         self.folder_model.setRootPath(str(self.workspace.root))
         self.folder_tree = QTreeView()
         self.folder_tree.setObjectName("workspaceTree")
-        self.folder_tree.setAccessibleName("Çalışma klasörleri")
+        self.folder_tree.setAccessibleName(tr("Çalışma klasörleri"))
         self.folder_tree.setModel(self.folder_model)
         self.folder_tree.setRootIndex(self.folder_model.index(str(self.workspace.root)))
         self.folder_tree.setHeaderHidden(True)
@@ -211,14 +217,14 @@ class MainWindow(WorkspaceActions, QMainWindow):
         self.folder_tree.setIndentation(14)
         self.folder_tree.clicked.connect(self._folder_clicked)
         self.sidebar_layout.addWidget(self.folder_tree, 1)
-        self.sidebar_layout.addWidget(label("Son açılanlar", "sectionCaption"))
+        self.sidebar_layout.addWidget(label(tr("Son açılanlar"), "sectionCaption"))
         self.recent_list = QListWidget()
         self.recent_list.setMaximumHeight(145)
-        self.recent_list.setAccessibleName("Son açılan dosyalar")
+        self.recent_list.setAccessibleName(tr("Son açılan dosyalar"))
         self.recent_list.itemClicked.connect(lambda item: self.open_path(item.data(Qt.ItemDataRole.UserRole)))
         self.sidebar_layout.addWidget(self.recent_list)
-        self.demo_button = button("Örnek dosya", self.open_demo)
-        self.demo_button.setToolTip("Örnek veriyi aç")
+        self.demo_button = button(tr("Örnek dosya"), self.open_demo)
+        self.demo_button.setToolTip(tr("Örnek veriyi aç"))
         self.sidebar_layout.addWidget(self.demo_button)
         outer.addWidget(self.sidebar)
 
@@ -231,9 +237,17 @@ class MainWindow(WorkspaceActions, QMainWindow):
         self.page_tabs.setExpanding(False)
         self.page_tabs.setUsesScrollButtons(True)
         self.page_tabs.setElideMode(Qt.TextElideMode.ElideMiddle)
-        self.page_tabs.addTab("Dosyalar")
+        self.page_tabs.addTab(tr("Dosyalar"))
         self.page_tabs.currentChanged.connect(self._page_changed)
-        self.main_layout.addWidget(self.page_tabs)
+        navigation = QHBoxLayout()
+        navigation.addWidget(self.page_tabs, 1)
+        self.settings_button = QToolButton()
+        self.settings_button.setText(tr("Ayarlar"))
+        self.settings_button.setAccessibleName(tr("Ayarlar"))
+        self.settings_button.setToolTip(tr("Ayarlar…") + " · " + shortcut_label("Ctrl+,"))
+        self.settings_button.clicked.connect(self.show_settings)
+        navigation.addWidget(self.settings_button)
+        self.main_layout.addLayout(navigation)
         self.notice = Notice()
         self.notice.hide()
         self.main_layout.addWidget(self.notice)
@@ -252,20 +266,24 @@ class MainWindow(WorkspaceActions, QMainWindow):
         document_layout.setContentsMargins(0, 0, 0, 0)
         document_layout.setSpacing(8)
         header = QHBoxLayout()
-        self.title_label = ElidedLabel("Tablo")
+        self.title_label = ElidedLabel(tr("Tablo"))
         self.title_label.setObjectName("title")
         self.title_label.setMinimumWidth(0)
         self.title_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         header.addWidget(self.title_label, 1)
-        self.save_button = button("Kaydet", self.save_document)
-        self.save_button.setToolTip("Çalışma tablosunun tüm satırlarını kaydet · " + shortcut_label("Ctrl+S"))
+        self.save_button = button(tr("Kaydet"), self.save_document)
+        self.save_button.setToolTip(
+            tr("Çalışma tablosunun tüm satırlarını kaydet · {shortcut}", shortcut=shortcut_label("Ctrl+S"))
+        )
         header.addWidget(self.save_button)
-        self.filter_toggle = button("Filtreler", self.toggle_filters, "filterToggle")
+        self.filter_toggle = button(tr("Filtreler"), self.toggle_filters, "filterToggle")
         self.filter_toggle.setCheckable(True)
-        self.filter_toggle.setAccessibleName("Filtre panelini göster veya gizle")
-        self.filter_toggle.setToolTip("Filtre panelini aç/kapat · " + shortcut_label("Ctrl+Shift+F"))
+        self.filter_toggle.setAccessibleName(tr("Filtre panelini göster veya gizle"))
+        self.filter_toggle.setToolTip(
+            tr("Filtre panelini aç/kapat · {shortcut}", shortcut=shortcut_label("Ctrl+Shift+F"))
+        )
         header.addWidget(self.filter_toggle)
-        self.export_button = button("Dışa aktar", self.export_file)
+        self.export_button = button(tr("Dışa aktar"), self.export_file)
         header.addWidget(self.export_button)
         document_layout.addLayout(header)
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -322,7 +340,7 @@ class MainWindow(WorkspaceActions, QMainWindow):
             content_width = width - side_width - padding * 2
             focus = content_width < self._px(860)
             self.compact_mode = focus
-            self.delete_button.setText("Satır sil")
+            self.delete_button.setText(tr("Satır sil"))
             self.search.setMinimumWidth(self._px(140))
             self.search.setMaximumWidth(self._px(280))
             self.table_panel.setMinimumWidth(min(self._px(340), content_width))
@@ -333,7 +351,9 @@ class MainWindow(WorkspaceActions, QMainWindow):
             self.filter_container.setVisible(show_filters)
             self.filter_toggle.setChecked(show_filters)
             self.filter_toggle.setText(
-                "Tabloya dön" if focus and show_filters else f"Filtreler ({len(self.rules)})"
+                tr("Tabloya dön")
+                if focus and show_filters
+                else tr("Filtreler ({count})", count=len(self.rules))
             )
             self.title_label.setVisible(content_width >= self._px(600))
             layout_state = (focus, show_filters, self.zoom_percent)
@@ -372,24 +392,25 @@ class MainWindow(WorkspaceActions, QMainWindow):
 
     def _zoom_controls(self):
         controls = QWidget()
+        self.zoom_controls = controls
         row = QHBoxLayout(controls)
         row.setContentsMargins(4, 0, 4, 0)
         row.setSpacing(2)
         self.zoom_out = QToolButton()
         self.zoom_out.setText("−")
-        self.zoom_out.setToolTip("Arayüzü küçült · " + shortcut_label("Ctrl+−"))
+        self.zoom_out.setToolTip(tr("Arayüzü küçült · {shortcut}", shortcut=shortcut_label("Ctrl+−")))
         self.zoom_out.clicked.connect(lambda: self.set_zoom(self.zoom_percent - 25))
         self.zoom_label = QToolButton()
-        self.zoom_label.setToolTip("Arayüz büyüklüğünü %100'e döndür")
+        self.zoom_label.setToolTip(tr("Arayüz büyüklüğünü %100'e döndür"))
         self.zoom_label.clicked.connect(lambda: self.set_zoom(100))
         self.zoom_in = QToolButton()
         self.zoom_in.setText("＋")
-        self.zoom_in.setToolTip("Arayüzü büyüt · " + shortcut_label("Ctrl++"))
+        self.zoom_in.setToolTip(tr("Arayüzü büyüt · {shortcut}", shortcut=shortcut_label("Ctrl++")))
         self.zoom_in.clicked.connect(lambda: self.set_zoom(self.zoom_percent + 25))
         for widget in (self.zoom_out, self.zoom_label, self.zoom_in):
             row.addWidget(widget)
         self.statusBar().addPermanentWidget(controls)
-        self.zoom_label.setText(f"%{self.zoom_percent}")
+        self.zoom_label.setText(tr("%{percent}", percent=self.zoom_percent))
         self.zoom_out.setEnabled(self.zoom_percent > 75)
         self.zoom_in.setEnabled(self.zoom_percent < 150)
 
@@ -398,8 +419,8 @@ class MainWindow(WorkspaceActions, QMainWindow):
         old = self.zoom_percent
         self.zoom_percent = percent
         self.settings.setValue("ui_zoom", percent)
-        self.setStyleSheet(scaled_style(percent))
-        self.zoom_label.setText(f"%{percent}")
+        self._apply_appearance()
+        self.zoom_label.setText(tr("%{percent}", percent=percent))
         self.zoom_out.setEnabled(percent > 75)
         self.zoom_in.setEnabled(percent < 150)
         self.table.verticalHeader().setDefaultSectionSize(self._px(30))
@@ -420,13 +441,13 @@ class MainWindow(WorkspaceActions, QMainWindow):
         toolbar = QHBoxLayout()
         self.table_toolbar = toolbar
         toolbar.setContentsMargins(10, 8, 10, 8)
-        self.file_label = ElidedLabel("Veri tablosu")
+        self.file_label = ElidedLabel(tr("Veri tablosu"))
         self.file_label.setObjectName("sectionTitle")
         self.file_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         toolbar.addWidget(self.file_label, 1)
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Tüm sütunlarda ara…")
-        self.search.setAccessibleName("Tüm sütunlarda ara")
+        self.search.setPlaceholderText(tr("Tüm sütunlarda ara…"))
+        self.search.setAccessibleName(tr("Tüm sütunlarda ara"))
         self.search.setClearButtonEnabled(True)
         self.search.setMaximumWidth(260)
         self.search.textChanged.connect(lambda _: self.search_timer.start())
@@ -442,18 +463,20 @@ class MainWindow(WorkspaceActions, QMainWindow):
         icon = label("▦", "emptyIcon")
         icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_layout.addWidget(icon)
-        welcome = label("Bir dosyayla başlayın", "sectionTitle")
+        welcome = label(tr("Bir dosyayla başlayın"), "sectionTitle")
         welcome.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_layout.addWidget(welcome)
         desc = label(
-            "Excel veya CSV dosyanızı buraya sürükleyin.\nSayfa ve başlıkları kontrol edip filtrelemeye başlayın.",
+            tr(
+                "Excel veya CSV dosyanızı buraya sürükleyin.\nSayfa ve başlıkları kontrol edip filtrelemeye başlayın."
+            ),
             "muted",
         )
         desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         desc.setWordWrap(True)
         desc.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         empty_layout.addWidget(desc)
-        empty_button = button("Dosya seç", self.open_file, "primary")
+        empty_button = button(tr("Dosya seç"), self.open_file, "primary")
         empty_button.setFixedWidth(180)
         empty_layout.addSpacing(15)
         empty_layout.addWidget(empty_button, 0, Qt.AlignmentFlag.AlignCenter)
@@ -479,16 +502,16 @@ class MainWindow(WorkspaceActions, QMainWindow):
         no_results = QWidget()
         no_layout = QVBoxLayout(no_results)
         no_layout.addStretch()
-        self.no_title = no_title = label("Eşleşen satır bulunamadı", "sectionTitle")
+        self.no_title = no_title = label(tr("Eşleşen satır bulunamadı"), "sectionTitle")
         no_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         no_layout.addWidget(no_title)
         self.no_desc = no_desc = label(
-            "Filtreleri veya arama metnini değiştirin.\nDışa aktarırken sütun başlıkları yine korunur.",
+            tr("Filtreleri veya arama metnini değiştirin.\nDışa aktarırken sütun başlıkları yine korunur."),
             "muted",
         )
         no_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         no_layout.addWidget(no_desc)
-        reset = button("Görünümü sıfırla", self.reset_view)
+        reset = button(tr("Görünümü sıfırla"), self.reset_view)
         no_layout.addWidget(reset, 0, Qt.AlignmentFlag.AlignCenter)
         no_layout.addStretch()
         self.stack.addWidget(no_results)
@@ -496,15 +519,19 @@ class MainWindow(WorkspaceActions, QMainWindow):
         actions = QHBoxLayout()
         self.row_actions = actions
         actions.setContentsMargins(10, 7, 10, 7)
-        self.add_button = button("Satır ekle", self.add_row)
-        self.column_button = button("Sütun ekle", self.add_column)
-        self.delete_button = button("Seçili satırları sil", self.delete_rows, "danger")
-        self.delete_button.setToolTip("Seçili satırları çalışma verisinden sil")
-        self.delete_button.setAccessibleName("Seçili satırları sil")
+        self.add_button = button(tr("Satır ekle"), self.add_row)
+        self.column_button = button(tr("Sütun ekle"), self.add_column)
+        self.delete_button = button(tr("Seçili satırları sil"), self.delete_rows, "danger")
+        self.delete_button.setToolTip(tr("Seçili satırları çalışma verisinden sil"))
+        self.delete_button.setAccessibleName(tr("Seçili satırları sil"))
         self.undo_button = button("↶", self.undo)
-        self.undo_button.setToolTip("Düzenlemeyi geri al · " + shortcut_label("Ctrl+Z") + " (son 10 işlem)")
+        self.undo_button.setToolTip(
+            tr("Düzenlemeyi geri al · {shortcut} (son 10 işlem)", shortcut=shortcut_label("Ctrl+Z"))
+        )
         self.redo_button = button("↷", self.redo)
-        self.redo_button.setToolTip("Düzenlemeyi yinele · " + shortcut_label("Ctrl+Shift+Z"))
+        self.redo_button.setToolTip(
+            tr("Düzenlemeyi yinele · {shortcut}", shortcut=shortcut_label("Ctrl+Shift+Z"))
+        )
         actions.addWidget(self.add_button)
         actions.addWidget(self.column_button)
         actions.addWidget(self.delete_button)
@@ -533,12 +560,12 @@ class MainWindow(WorkspaceActions, QMainWindow):
         layout.setContentsMargins(18, 18, 18, 18)
         layout.setSpacing(8)
         heading = QHBoxLayout()
-        heading.addWidget(label("Filtreler", "sectionTitle"))
+        heading.addWidget(label(tr("Filtreler"), "sectionTitle"))
         heading.addStretch()
-        self.reset_button = button("Sıfırla", self.reset_view)
+        self.reset_button = button(tr("Sıfırla"), self.reset_view)
         heading.addWidget(self.reset_button)
         layout.addLayout(heading)
-        explanation = label("Koşul ekleyin, sonuçlarınızı daraltın.", "muted")
+        explanation = label(tr("Koşul ekleyin, sonuçlarınızı daraltın."), "muted")
         explanation.setWordWrap(True)
         layout.addWidget(explanation)
         self.filter_tabs = QTabWidget()
@@ -552,78 +579,80 @@ class MainWindow(WorkspaceActions, QMainWindow):
         active_layout = QVBoxLayout(active)
         active_layout.setContentsMargins(0, 12, 0, 0)
         active_layout.setSpacing(10)
-        self.filter_tabs.addTab(builder, "Koşul ekle")
-        self.filter_tabs.addTab(active, "Aktif (0)")
+        self.filter_tabs.addTab(builder, tr("Koşul ekle"))
+        self.filter_tabs.addTab(active, tr("Aktif (0)"))
         layout.addWidget(self.filter_tabs, 1)
-        build.addWidget(label("SÜTUN", "eyebrow"))
+        build.addWidget(label(tr("SÜTUN"), "eyebrow"))
         self.column = QComboBox()
-        self.column.setAccessibleName("Filtre sütunu")
+        self.column.setAccessibleName(tr("Filtre sütunu"))
         self.column.currentIndexChanged.connect(self._column_changed)
         self.column.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.column.setMinimumContentsLength(10)
         build.addWidget(self.column)
-        self.type_label = label("Bir dosya açın", "muted")
+        self.type_label = label(tr("Bir dosya açın"), "muted")
         build.addWidget(self.type_label)
         self.kind = QComboBox()
         for text, value in [
-            ("Otomatik veri türü", "auto"),
-            ("Metin olarak işle", "text"),
-            ("Sayı olarak işle", "number"),
-            ("Tarih olarak işle", "date"),
-            ("Mantıksal olarak işle", "boolean"),
+            (tr("Otomatik veri türü"), "auto"),
+            (tr("Metin olarak işle"), "text"),
+            (tr("Sayı olarak işle"), "number"),
+            (tr("Tarih olarak işle"), "date"),
+            (tr("Mantıksal olarak işle"), "boolean"),
         ]:
             self.kind.addItem(text, value)
-        self.kind.setToolTip("Yalnızca eklenecek koşulun türünü belirler; kaynak değerleri değiştirmez.")
+        self.kind.setToolTip(tr("Yalnızca eklenecek koşulun türünü belirler; kaynak değerleri değiştirmez."))
         self.kind.currentIndexChanged.connect(self._operator_changed)
         build.addWidget(self.kind)
         self.number_format = QComboBox()
-        self.number_format.addItem("Sayı biçimi: otomatik", "auto")
-        self.number_format.addItem("Türkçe · 1.234,56", "tr")
-        self.number_format.addItem("İngilizce · 1,234.56", "us")
+        self.number_format.addItem(tr("Sayı biçimi: otomatik"), "auto")
+        self.number_format.addItem(tr("Türkçe · 1.234,56"), "tr")
+        self.number_format.addItem(tr("İngilizce · 1,234.56"), "us")
         self.number_format.setToolTip(
-            "Tek ayraçlı sayılar belirsiz olabilir. 1.234 değerini bin iki yüz otuz dört okumak için Türkçe seçin. Seçim bu sütunun sıralamasında da kullanılır."
+            tr(
+                "Tek ayraçlı sayılar belirsiz olabilir. 1.234 değerini bin iki yüz otuz dört okumak için Türkçe seçin. Seçim bu sütunun sıralamasında da kullanılır."
+            )
         )
         self.number_format.currentIndexChanged.connect(self._number_format_changed)
         build.addWidget(self.number_format)
-        build.addWidget(label("KOŞUL", "eyebrow"))
+        build.addWidget(label(tr("KOŞUL"), "eyebrow"))
         self.operator = QComboBox()
         for text, value in OPERATORS:
-            self.operator.addItem(text, value)
+            self.operator.addItem(tr(text), value)
         self.operator.currentIndexChanged.connect(self._operator_changed)
         build.addWidget(self.operator)
         self.value = QLineEdit()
-        self.value.setPlaceholderText("Değer girin…")
-        self.value.setAccessibleName("Filtre değeri")
+        self.value.setPlaceholderText(tr("Değer girin…"))
+        self.value.setAccessibleName(tr("Filtre değeri"))
         self.value.returnPressed.connect(self.add_filter)
         build.addWidget(self.value)
         self.value2 = QLineEdit()
-        self.value2.setPlaceholderText("Üst sınır (dahil)")
-        self.value2.setAccessibleName("Filtre üst sınırı")
+        self.value2.setPlaceholderText(tr("Üst sınır (dahil)"))
+        self.value2.setAccessibleName(tr("Filtre üst sınırı"))
         self.value2.returnPressed.connect(self.add_filter)
         self.value2.hide()
         build.addWidget(self.value2)
-        self.filter_hint = label("Metin araması büyük/küçük harfe duyarsızdır.", "hint")
+        self.filter_hint = label(tr("Metin araması büyük/küçük harfe duyarsızdır."), "hint")
         self.filter_hint.setWordWrap(True)
         build.addWidget(self.filter_hint)
-        self.filter_button = button("＋  Filtre ekle", self.add_filter, "primary")
+        self.filter_button = button(tr("＋  Filtre ekle"), self.add_filter, "primary")
         self.filter_error = label("", "error")
         self.filter_error.setWordWrap(True)
         self.filter_error.hide()
         build.addStretch()
-        active_layout.addWidget(label("KOŞULLARI BİRLEŞTİR", "eyebrow"))
+        active_layout.addWidget(label(tr("KOŞULLARI BİRLEŞTİR"), "eyebrow"))
         self.match_combo = QComboBox()
-        self.match_combo.addItem("Tümü eşleşsin (VE)", "all")
-        self.match_combo.addItem("Biri eşleşsin (VEYA)", "any")
+        self.match_combo.addItem(tr("Tümü eşleşsin (VE)"), "all")
+        self.match_combo.addItem(tr("Biri eşleşsin (VEYA)"), "any")
         self.match_combo.currentIndexChanged.connect(self.change_match)
         active_layout.addWidget(self.match_combo)
         self.rule_list = QListWidget()
         self.rule_list.setMinimumHeight(100)
         self.rule_list.setWordWrap(True)
-        self.rule_list.setToolTip("Kaldırmak istediğiniz koşulu seçin.")
+        self.rule_list.setToolTip(tr("Kaldırmak istediğiniz koşulu seçin."))
         active_layout.addWidget(self.rule_list, 1)
-        self.remove_button = button("Seçili filtreyi kaldır", self.remove_filter)
+        self.remove_button = button(tr("Seçili filtreyi kaldır"), self.remove_filter)
         tips = label(
-            "İPUCU\n\nSıralamak için sütun başlığına tıklayın. Hücreyi düzenlemek için çift tıklayın.",
+            tr("İPUCU\n\nSıralamak için sütun başlığına tıklayın. Hücreyi düzenlemek için çift tıklayın."),
             "hint",
         )
         tips.setWordWrap(True)
@@ -668,65 +697,74 @@ class MainWindow(WorkspaceActions, QMainWindow):
         self.filter_error.setVisible(builder and bool(self.filter_error.text()))
 
     def _menus(self):
-        menu = self.menuBar().addMenu("Dosya")
+        menu = self.menuBar().addMenu(tr("Dosya"))
         for title, shortcut, callback in [
-            ("Yeni dosya…", QKeySequence.StandardKey.New, self.new_workspace_file),
-            ("Yeni klasör…", "Ctrl+Shift+N", self.new_workspace_folder),
-            ("Çalışma klasörünü değiştir…", None, self.choose_workspace_root),
-            ("Dosya aç…", QKeySequence.StandardKey.Open, self.open_file),
-            ("Kaydet", QKeySequence.StandardKey.Save, self.save_document),
-            ("Farklı kaydet…", QKeySequence.StandardKey.SaveAs, self.save_document_as),
-            ("Dışa aktar…", "Ctrl+Shift+E", self.export_file),
-            ("Excel / varsayılan uygulamada aç", None, self.open_in_spreadsheet),
-            ("Örnek veriyi aç", None, self.open_demo),
+            (tr("Yeni dosya…"), QKeySequence.StandardKey.New, self.new_workspace_file),
+            (tr("Yeni klasör…"), "Ctrl+Shift+N", self.new_workspace_folder),
+            (tr("Çalışma klasörünü değiştir…"), None, self.choose_workspace_root),
+            (tr("Dosya aç…"), QKeySequence.StandardKey.Open, self.open_file),
+            (tr("Kaydet"), QKeySequence.StandardKey.Save, self.save_document),
+            (tr("Farklı kaydet…"), QKeySequence.StandardKey.SaveAs, self.save_document_as),
+            (tr("Dışa aktar…"), "Ctrl+Shift+E", self.export_file),
+            (tr("Excel / varsayılan uygulamada aç"), None, self.open_in_spreadsheet),
+            (tr("Örnek veriyi aç"), None, self.open_demo),
         ]:
             action = QAction(title, self)
             if shortcut:
                 action.setShortcut(shortcut)
             action.triggered.connect(callback)
             menu.addAction(action)
-        edit = self.menuBar().addMenu("Düzenle")
+        edit = self.menuBar().addMenu(tr("Düzenle"))
         for title, shortcut, callback in [
-            ("Geri al", QKeySequence.StandardKey.Undo, self.undo),
-            ("Yinele", QKeySequence.StandardKey.Redo, self.redo),
-            ("Ara", QKeySequence.StandardKey.Find, self.search.setFocus),
+            (tr("Geri al"), QKeySequence.StandardKey.Undo, self.undo),
+            (tr("Yinele"), QKeySequence.StandardKey.Redo, self.redo),
+            (tr("Ara"), QKeySequence.StandardKey.Find, self.search.setFocus),
         ]:
             action = QAction(title, self)
             action.setShortcut(shortcut)
             action.triggered.connect(callback)
             edit.addAction(action)
-        help_menu = self.menuBar().addMenu("Yardım")
-        view = self.menuBar().insertMenu(help_menu.menuAction(), QMenu("Görünüm", self))
+        help_menu = self.menuBar().addMenu(tr("Yardım"))
+        view = self.menuBar().insertMenu(help_menu.menuAction(), QMenu(tr("Görünüm"), self))
         for text, shortcut, callback in [
-            ("Dosyaları göster", "Alt+1", self.show_files),
-            ("Tabloyu göster", "Alt+2", self.show_document),
-            ("Filtreleri göster/gizle", "Ctrl+Shift+F", self.toggle_filters),
-            ("Arayüzü büyüt", QKeySequence.StandardKey.ZoomIn, lambda: self.set_zoom(self.zoom_percent + 25)),
+            (tr("Dosyaları göster"), "Alt+1", self.show_files),
+            (tr("Tabloyu göster"), "Alt+2", self.show_document),
+            (tr("Filtreleri göster/gizle"), "Ctrl+Shift+F", self.toggle_filters),
             (
-                "Arayüzü küçült",
+                tr("Arayüzü büyüt"),
+                QKeySequence.StandardKey.ZoomIn,
+                lambda: self.set_zoom(self.zoom_percent + 25),
+            ),
+            (
+                tr("Arayüzü küçült"),
                 QKeySequence.StandardKey.ZoomOut,
                 lambda: self.set_zoom(self.zoom_percent - 25),
             ),
-            ("Gerçek boyut (%100)", "Ctrl+0", lambda: self.set_zoom(100)),
+            (tr("Gerçek boyut (%100)"), "Ctrl+0", lambda: self.set_zoom(100)),
         ]:
             action = QAction(text, self)
             action.setShortcut(shortcut)
             action.triggered.connect(callback)
             view.menu().addAction(action)
-        about = QAction("DataDesk hakkında", self)
+        about = QAction(tr("DataDesk hakkında"), self)
         about.triggered.connect(
             lambda: QMessageBox.about(
                 self,
                 "DataDesk",
-                "<b>DataDesk</b><p>Excel ve CSV için yerel dosya ve tablo çalışma alanı.</p><p>Klasör oluşturun, tablolarınızı düzenleyip kaydedin; filtrelenmiş sonuçları ayrı dosyaya aktarın.</p><p>Kaynak biçim ve makrolar aktarılmaz. Formüller hesaplanmaz; kayıtlı sonuçlar okunur. Excel'de kaydedilmiş güncel sonuçları kullanın.</p>",
+                tr(
+                    "<b>DataDesk</b><p>Excel ve CSV için yerel dosya ve tablo çalışma alanı.</p><p>Klasör oluşturun, tablolarınızı düzenleyip kaydedin; filtrelenmiş sonuçları ayrı dosyaya aktarın.</p><p>Kaynak biçim ve makrolar aktarılmaz. Formüller hesaplanmaz; kayıtlı sonuçlar okunur. Excel'de kaydedilmiş güncel sonuçları kullanın.</p>"
+                ),
             )
         )
         help_menu.addAction(about)
         self.copy_shortcut = QShortcut(QKeySequence.StandardKey.Copy, self.table)
         self.copy_shortcut.setContext(Qt.ShortcutContext.WidgetShortcut)
         self.copy_shortcut.activated.connect(self.copy_selection)
+        self._preferences_menu(edit)
 
     def _controls(self):
+        self.settings_button.setEnabled(not self.busy and self.import_dialog is None)
+        self.settings_action.setEnabled(not self.busy and self.import_dialog is None)
         available = self.document is not None and not self.busy
         for widget in (
             self.export_button,
@@ -774,19 +812,19 @@ class MainWindow(WorkspaceActions, QMainWindow):
         self.pool.start(task)
         return True
 
-    @Slot(int, object, str)
+    @Slot(int, object, object)
     def _task_finished(self, task_id, result, error):
         _, success, failure = self.tasks.pop(task_id)
         self.busy = False
         self._controls()
         if error:
-            self.statusBar().showMessage("İşlem tamamlanamadı. Mevcut verileriniz korunuyor.")
+            self.statusBar().showMessage(tr("İşlem tamamlanamadı. Mevcut verileriniz korunuyor."))
             if failure:
                 failure(error)
             else:
                 self.show_error(error)
         else:
-            self.statusBar().showMessage("Hazır")
+            self.statusBar().showMessage(tr("Hazır"))
             success(result)
         QTimer.singleShot(0, self._flush_pending_view)
 
@@ -800,7 +838,7 @@ class MainWindow(WorkspaceActions, QMainWindow):
             self.apply_view()
 
     def show_error(self, message):
-        QMessageBox.warning(self, "DataDesk · İşlem tamamlanamadı", message)
+        QMessageBox.warning(self, tr("DataDesk · İşlem tamamlanamadı"), message)
 
     def _commit_cell_edit(self):
         for editor in self.table.findChildren(QLineEdit):
@@ -821,8 +859,10 @@ class MainWindow(WorkspaceActions, QMainWindow):
             return True
         choice = QMessageBox.question(
             self,
-            "Düzenlemeleri bırak?",
-            "Kaydedilmemiş düzenlemeler var. Devam ederseniz bu düzenlemeler kapanır.\n\nÖnce Kaydet düğmesini kullanmak için Vazgeç'i seçin.",
+            tr("Düzenlemeleri bırak?"),
+            tr(
+                "Kaydedilmemiş düzenlemeler var. Devam ederseniz bu düzenlemeler kapanır.\n\nÖnce Kaydet düğmesini kullanmak için Vazgeç'i seçin."
+            ),
             QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel,
         )
@@ -833,9 +873,11 @@ class MainWindow(WorkspaceActions, QMainWindow):
             return
         path, _ = QFileDialog.getOpenFileName(
             self,
-            "DataDesk · Dosya seç",
+            tr("DataDesk · Dosya seç"),
             self.settings.value("last_directory", str(Path.home())),
-            "Veri dosyaları (*.xlsx *.xlsm *.xls *.csv *.tsv);;Excel (*.xlsx *.xlsm *.xls);;CSV / TSV (*.csv *.tsv)",
+            tr(
+                "Veri dosyaları (*.xlsx *.xlsm *.xls *.csv *.tsv);;Excel (*.xlsx *.xlsm *.xls);;CSV / TSV (*.csv *.tsv)"
+            ),
         )
         if path:
             self.open_path(path)
@@ -856,7 +898,7 @@ class MainWindow(WorkspaceActions, QMainWindow):
             except Exception as exc:
                 return info, None, str(exc)
 
-        self._run_task("Dosya inceleniyor…", inspect, lambda result: self._choose_import(path, result))
+        self._run_task(tr("Dosya inceleniyor…"), inspect, lambda result: self._choose_import(path, result))
 
     def _choose_import(self, path, result):
         info, loaded, error = result
@@ -874,7 +916,7 @@ class MainWindow(WorkspaceActions, QMainWindow):
                 dialog.set_busy(False)
                 dialog.message.setText(message)
 
-            self._run_task("Önizleme okunuyor…", lambda: read_table(path, options), done, failed)
+            self._run_task(tr("Önizleme okunuyor…"), lambda: read_table(path, options), done, failed)
 
         dialog.preview_requested.connect(preview)
         if dialog.exec() == QDialog.DialogCode.Accepted:
@@ -883,6 +925,7 @@ class MainWindow(WorkspaceActions, QMainWindow):
             self.load_path(path, options)
         else:
             self.import_dialog = None
+        self._controls()
 
     def load_path(self, path, options=None):
         """Load explicit options; failed reads never replace the active document."""
@@ -904,7 +947,7 @@ class MainWindow(WorkspaceActions, QMainWindow):
             self.settings.setValue("recent_files", [str(path)] + [p for p in recent if p != str(path)][:7])
             self._recent()
 
-        self._run_task("Dosya okunuyor…", read, loaded)
+        self._run_task(tr("Dosya okunuyor…"), read, loaded)
 
     def set_document(self, frame, name, path=None, warnings=None, kinds=None):
         frame = frame.reset_index(drop=True).copy()
@@ -933,11 +976,12 @@ class MainWindow(WorkspaceActions, QMainWindow):
         self.value2.clear()
         self.operator.setCurrentIndex(0)
         self.rule_list.clear()
-        self.filter_tabs.setTabText(1, "Aktif (0)")
+        self.filter_tabs.setTabText(1, tr("Aktif (0)"))
         self.filter_tabs.setCurrentIndex(0)
         self.filter_error.hide()
         self.filter_error.setText("")
-        self.notice.setText("\n".join(warnings or []))
+        self._filter_error_text = ""
+        self.notice.setText(join_tr("\n", warnings or []))
         self.notice.setVisible(bool(warnings))
         self.file_label.setText(name)
         self.file_label.setToolTip(name)
@@ -965,8 +1009,8 @@ class MainWindow(WorkspaceActions, QMainWindow):
         if not self.busy and self._confirm_replace():
             self.set_document(
                 demo_frame(),
-                "Örnek satış verileri",
-                warnings=["Örnek veri · Bu kayıtlar uygulamayı denemek için oluşturulmuştur."],
+                tr("Örnek satış verileri"),
+                warnings=[tr("Örnek veri · Bu kayıtlar uygulamayı denemek için oluşturulmuştur.")],
             )
 
     def _recent(self):
@@ -984,7 +1028,7 @@ class MainWindow(WorkspaceActions, QMainWindow):
     def _column_changed(self, *_):
         col = self.column.currentText()
         kind = self.kinds.get(col, "text")
-        self.type_label.setText("Algılanan tür: " + KIND_LABELS.get(kind, str(kind)))
+        self.type_label.setText(tr("Algılanan tür: {kind}", kind=tr(KIND_LABELS.get(kind, str(kind)))))
         if hasattr(self, "number_format"):
             self.number_format.blockSignals(True)
             self.number_format.setCurrentIndex(
@@ -1009,19 +1053,21 @@ class MainWindow(WorkspaceActions, QMainWindow):
         self.value.setEnabled(
             self.document is not None and not self.busy and op not in ("is_empty", "not_empty")
         )
-        self.value.setPlaceholderText("Alt sınır (dahil)" if op == "between" else "Değer girin…")
+        self.value.setPlaceholderText(tr("Alt sınır (dahil)") if op == "between" else tr("Değer girin…"))
         hints = {
-            "between": "Sayı: 1234,56 veya 1234.56 · Tarih: 31.12.2026. Son günün tamamı dahildir.",
-            "in": "Değerleri noktalı virgülle ayırın (ör. 1,5; 2,5). Listede olan satırlar eşleşir.",
-            "all_words": "Kelimeleri boşlukla ayırın. Hepsini içeren satırlar eşleşir.",
-            "any_words": "Kelimeleri boşlukla ayırın. En az birini içeren satırlar eşleşir.",
-            "is_empty": "Boş hücreler ve yalnızca boşluk içeren metinler eşleşir.",
-            "not_empty": "İçinde değer olan hücreler eşleşir.",
+            "between": tr("Sayı: 1234,56 veya 1234.56 · Tarih: 31.12.2026. Son günün tamamı dahildir."),
+            "in": tr("Değerleri noktalı virgülle ayırın (ör. 1,5; 2,5). Listede olan satırlar eşleşir."),
+            "all_words": tr("Kelimeleri boşlukla ayırın. Hepsini içeren satırlar eşleşir."),
+            "any_words": tr("Kelimeleri boşlukla ayırın. En az birini içeren satırlar eşleşir."),
+            "is_empty": tr("Boş hücreler ve yalnızca boşluk içeren metinler eşleşir."),
+            "not_empty": tr("İçinde değer olan hücreler eşleşir."),
         }
         self.filter_hint.setText(
             hints.get(
                 op,
-                "Metin araması büyük/küçük harfe duyarsızdır. Sayı ve tarih karşılaştırmaları veri türüne göre yapılır.",
+                tr(
+                    "Metin araması büyük/küçük harfe duyarsızdır. Sayı ve tarih karşılaştırmaları veri türüne göre yapılır."
+                ),
             )
         )
 
@@ -1108,6 +1154,7 @@ class MainWindow(WorkspaceActions, QMainWindow):
             self.sort_column, self.sort_ascending = column, ascending
             self.filter_error.hide()
             self.filter_error.setText("")
+            self._filter_error_text = ""
             self._rule_labels()
             self._show_frame(frame)
             self._column_changed()
@@ -1121,6 +1168,7 @@ class MainWindow(WorkspaceActions, QMainWindow):
                 after()
 
         def fail(error):
+            self._filter_error_text = error
             self.filter_error.setText(error)
             self.filter_error.show()
             self.match_combo.blockSignals(True)
@@ -1132,22 +1180,27 @@ class MainWindow(WorkspaceActions, QMainWindow):
             self.search.blockSignals(False)
             self.view_revision = revision
 
-        self._run_task("Filtreler ve sıralama uygulanıyor…", calculate, done, fail)
+        self._run_task(tr("Filtreler ve sıralama uygulanıyor…"), calculate, done, fail)
 
     def _rule_labels(self):
         self.rule_list.clear()
-        self.filter_tabs.setTabText(1, f"Aktif ({len(self.rules)})")
-        operators = {value: title for title, value in OPERATORS}
+        self.filter_tabs.setTabText(1, tr("Aktif ({count})", count=len(self.rules)))
+        operators = {value: tr(title) for title, value in OPERATORS}
         for rule in self.rules:
             detail = f"{rule.value} — {rule.value2}" if rule.operator == "between" else rule.value
             text = f"{rule.column}\n{operators.get(rule.operator, rule.operator)} {detail}"
             item = QListWidgetItem(text)
             item.setToolTip(
-                text
-                + "\nTür: "
-                + KIND_LABELS.get(rule.kind, "Otomatik")
-                + " · Sayı biçimi: "
-                + rule.number_format
+                tr(
+                    "{text}\nTür: {kind} · Sayı biçimi: {number_format}",
+                    text=text,
+                    kind=tr(KIND_LABELS.get(rule.kind, "Otomatik")),
+                    number_format=tr(
+                        {"auto": "Otomatik", "tr": "Türkçe", "us": "İngilizce"}.get(
+                            rule.number_format, rule.number_format
+                        )
+                    ),
+                )
             )
             self.rule_list.addItem(item)
 
@@ -1156,17 +1209,22 @@ class MainWindow(WorkspaceActions, QMainWindow):
         self.stack.setCurrentIndex(1 if len(frame) else 2)
         self._update_document_title()
         empty_document = self.document is not None and len(self.document.frame) == 0
-        self.no_title.setText("Tablo henüz boş" if empty_document else "Eşleşen satır bulunamadı")
+        self.no_title.setText(tr("Tablo henüz boş") if empty_document else tr("Eşleşen satır bulunamadı"))
         self.no_desc.setText(
-            "Satır ekle düğmesiyle ilk kaydı oluşturun."
+            tr("Satır ekle düğmesiyle ilk kaydı oluşturun.")
             if empty_document
-            else "Filtreleri veya arama metnini değiştirin."
+            else tr("Filtreleri veya arama metnini değiştirin.")
         )
         if self.document:
-            text = f"{len(frame):,} / {len(self.document.frame):,} satır · {len(frame.columns)} sütun"
-            self.compact_summary.setText(text + f" · {len(self.rules)} filtre")
+            text = tr(
+                "{visible:,} / {total:,} satır · {columns} sütun",
+                visible=len(frame),
+                total=len(self.document.frame),
+                columns=len(frame.columns),
+            )
+            self.compact_summary.setText(text + tr(" · {count} filtre", count=len(self.rules)))
             if self.dirty:
-                text += " · Kaydedilmemiş değişiklikler"
+                text += tr(" · Kaydedilmemiş değişiklikler")
             self.statusBar().showMessage(text)
         self._controls()
         self._relayout()
@@ -1187,20 +1245,20 @@ class MainWindow(WorkspaceActions, QMainWindow):
         if value is not None and isinstance(current, (pd.Timestamp, datetime, date)):
             value = parse_date(text)
             if value is None:
-                self.show_error("Geçerli bir tarih girin. Örnek: 31.12.2026")
+                self.show_error(tr("Geçerli bir tarih girin. Örnek: 31.12.2026"))
                 return False
         elif value is not None and (isinstance(current, bool) or pd.api.types.is_bool_dtype(type(current))):
             normalized = str(text).strip().casefold().replace("ı", "i")
-            if normalized not in ("evet", "hayir", "true", "false", "1", "0"):
-                self.show_error("Evet / Hayır veya True / False girin.")
+            if normalized not in ("evet", "hayir", "yes", "no", "true", "false", "1", "0"):
+                self.show_error(tr("Evet / Hayır veya True / False girin."))
                 return False
-            value = normalized in ("evet", "true", "1")
+            value = normalized in ("evet", "yes", "true", "1")
         elif value is not None and isinstance(current, Integral) and re.fullmatch(r"[+-]?\d+", text.strip()):
             value = int(text)
         elif value is not None and pd.api.types.is_number(current):
             value = parse_number(text, number_format=self.number_formats.get(col, "auto"))
             if value is None:
-                self.show_error("Geçerli bir sayı girin. Örnek: 1234,56 veya 1234.56")
+                self.show_error(tr("Geçerli bir sayı girin. Örnek: 1234,56 veya 1234.56"))
                 return False
         self.document.edit(row, col, value)
         self._after_edit()
@@ -1224,18 +1282,20 @@ class MainWindow(WorkspaceActions, QMainWindow):
                             else parse_number(value, number_format=self.number_formats.get(col, "auto"))
                         )
                         if parsed is None:
-                            raise ValueError(f"{col}: Geçerli bir sayı girin.")
+                            raise ValueError(tr("{column}: Geçerli bir sayı girin.", column=col))
                         values[col] = parsed
                     elif kind == "date":
                         parsed = parse_date(value)
                         if parsed is None:
-                            raise ValueError(f"{col}: Geçerli bir tarih girin (31.12.2026).")
+                            raise ValueError(
+                                tr("{column}: Geçerli bir tarih girin (31.12.2026).", column=col)
+                            )
                         values[col] = parsed
                     elif kind == "boolean":
                         normalized = value.strip().casefold().replace("ı", "i")
-                        if normalized not in ("evet", "hayir", "true", "false", "1", "0"):
-                            raise ValueError(f"{col}: Evet / Hayır girin.")
-                        values[col] = normalized in ("evet", "true", "1")
+                        if normalized not in ("evet", "hayir", "yes", "no", "true", "false", "1", "0"):
+                            raise ValueError(tr("{column}: Evet / Hayır girin.", column=col))
+                        values[col] = normalized in ("evet", "yes", "true", "1")
             except ValueError as exc:
                 self.show_error(str(exc))
                 continue
@@ -1251,8 +1311,11 @@ class MainWindow(WorkspaceActions, QMainWindow):
             return
         reply = QMessageBox.question(
             self,
-            "Satırları sil",
-            f"Seçili {len(rows)} satır çalışma verisinden silinsin mi?\nGeri al düğmesiyle bu işlemi geri alabilirsiniz.",
+            tr("Satırları sil"),
+            tr(
+                "Seçili {count} satır çalışma verisinden silinsin mi?\nGeri al düğmesiyle bu işlemi geri alabilirsiniz.",
+                count=len(rows),
+            ),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -1275,7 +1338,9 @@ class MainWindow(WorkspaceActions, QMainWindow):
         if rows:
             frame = self.model.frame.iloc[rows]
             QApplication.clipboard().setText(frame.to_csv(sep="\t", index=False))
-            self.statusBar().showMessage(f"{len(rows)} satır başlıklarıyla panoya kopyalandı.")
+            self.statusBar().showMessage(
+                tr("{count} satır başlıklarıyla panoya kopyalandı.", count=len(rows))
+            )
 
     def export_file(self):
         if self.document is None or self.busy or not self._commit_cell_edit():
@@ -1291,8 +1356,8 @@ class MainWindow(WorkspaceActions, QMainWindow):
         directory = self.settings.value("export_directory", str(default_export_directory()))
         path, _ = QFileDialog.getSaveFileName(
             self,
-            "DataDesk · Çıktıyı kaydet",
-            str(Path(directory) / f"{base}_filtreli{extension}"),
+            tr("DataDesk · Çıktıyı kaydet"),
+            str(Path(directory) / tr("{base}_filtreli{extension}", base=base, extension=extension)),
             f"{extension[1:].upper()} (*{extension})",
         )
         if not path:
@@ -1304,8 +1369,8 @@ class MainWindow(WorkspaceActions, QMainWindow):
                 path.exists()
                 and QMessageBox.question(
                     self,
-                    "Dosya zaten var",
-                    f"{path.name} değiştirilsin mi?",
+                    tr("Dosya zaten var"),
+                    tr("{name} değiştirilsin mi?", name=path.name),
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     QMessageBox.StandardButton.No,
                 )
@@ -1313,7 +1378,7 @@ class MainWindow(WorkspaceActions, QMainWindow):
             ):
                 return
         if self._is_source(path):
-            self.show_error("Kaynak dosyayı korumak için farklı bir ad veya konum seçin.")
+            self.show_error(tr("Kaynak dosyayı korumak için farklı bir ad veya konum seçin."))
             return
         self.export_to(path, dialog.options())
 
@@ -1322,7 +1387,7 @@ class MainWindow(WorkspaceActions, QMainWindow):
             return
         path = Path(path)
         if self._is_source(path):
-            self.show_error("Kaynak dosya üzerine yazılamaz. Farklı bir çıktı adı seçin.")
+            self.show_error(tr("Kaynak dosya üzerine yazılamaz. Farklı bir çıktı adı seçin."))
             return
         if self._view_stale():
             self.apply_view(after=lambda: self.export_to(path, options))
@@ -1331,13 +1396,15 @@ class MainWindow(WorkspaceActions, QMainWindow):
 
         def done(saved):
             self.settings.setValue("export_directory", str(Path(saved).parent))
-            self.notice.setText(f"Çıktı kaydedildi · {len(frame):,} satır\n{saved}")
+            self.notice.setText(
+                tr("Çıktı kaydedildi · {count:,} satır\n{path}", count=len(frame), path=saved)
+            )
             self.notice.show()
             self._show_frame(self.model.frame)
             self.browser.refresh()
-            self.statusBar().showMessage(f"Kaydedildi: {saved}")
+            self.statusBar().showMessage(tr("Kaydedildi: {path}", path=saved))
 
-        self._run_task("Tüm sonuçlar dışa aktarılıyor…", lambda: write_table(frame, path, options), done)
+        self._run_task(tr("Tüm sonuçlar dışa aktarılıyor…"), lambda: write_table(frame, path, options), done)
 
     def _is_source(self, path):
         if self.source_path is None:
@@ -1362,7 +1429,7 @@ class MainWindow(WorkspaceActions, QMainWindow):
 
     def closeEvent(self, event):
         if self.busy:
-            self.statusBar().showMessage("İşlem sürüyor. Tamamlandığında pencereyi kapatabilirsiniz.")
+            self.statusBar().showMessage(tr("İşlem sürüyor. Tamamlandığında pencereyi kapatabilirsiniz."))
             event.ignore()
             return
         if self._confirm_replace():

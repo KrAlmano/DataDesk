@@ -21,6 +21,8 @@ from PySide6.QtWidgets import (
 )
 
 from .dialogs import ScrollableDialog, form_layout, wrapped_label
+from .i18n import render_text, tr
+from . import translations_workspace as _translations_workspace  # noqa: F401
 from .io import ExportOptions, write_table
 from .workspace import Workspace
 
@@ -28,23 +30,23 @@ from .workspace import Workspace
 class NewTableDialog(ScrollableDialog):
     def __init__(self, parent=None):
         super().__init__((560, 510), parent)
-        self.setWindowTitle("Yeni dosya")
-        self.content_layout.addWidget(wrapped_label("Yeni tablo", "folderTitle"))
+        self.setWindowTitle(tr("Yeni dosya"))
+        self.content_layout.addWidget(wrapped_label(tr("Yeni tablo"), "folderTitle"))
         form = form_layout()
-        self.name = QLineEdit("Yeni tablo")
-        self.name.setAccessibleName("Dosya adı")
+        self.name = QLineEdit(tr("Yeni tablo"))
+        self.name.setAccessibleName(tr("Dosya adı"))
         self.name.selectAll()
-        form.addRow("Dosya adı", self.name)
+        form.addRow(tr("Dosya adı"), self.name)
         self.format = QComboBox()
         for title, suffix in [("Excel (.xlsx)", "xlsx"), ("CSV (.csv)", "csv"), ("TSV (.tsv)", "tsv")]:
             self.format.addItem(title, suffix)
-        self.format.setAccessibleName("Yeni dosya biçimi")
-        form.addRow("Biçim", self.format)
+        self.format.setAccessibleName(tr("Yeni dosya biçimi"))
+        form.addRow(tr("Biçim"), self.format)
         self.content_layout.addLayout(form)
-        self.content_layout.addWidget(QLabel("Sütunlar"))
-        self.content_layout.addWidget(wrapped_label("Her satıra bir sütun adı yazın.", "muted"))
-        self.columns = QPlainTextEdit("Ad\nTarih\nTutar")
-        self.columns.setAccessibleName("Sütun adları, her satırda bir ad")
+        self.content_layout.addWidget(QLabel(tr("Sütunlar")))
+        self.content_layout.addWidget(wrapped_label(tr("Her satıra bir sütun adı yazın."), "muted"))
+        self.columns = QPlainTextEdit(tr("Ad\nTarih\nTutar"))
+        self.columns.setAccessibleName(tr("Sütun adları, her satırda bir ad"))
         self.columns.setMinimumHeight(110)
         self.content_layout.addWidget(self.columns, 1)
         self.error = wrapped_label("", "error")
@@ -53,8 +55,8 @@ class NewTableDialog(ScrollableDialog):
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
         )
-        buttons.button(QDialogButtonBox.StandardButton.Save).setText("Oluştur")
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Vazgeç")
+        buttons.button(QDialogButtonBox.StandardButton.Save).setText(tr("Oluştur"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(tr("Vazgeç"))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         self.finish_with(buttons)
@@ -72,7 +74,7 @@ class NewTableDialog(ScrollableDialog):
             or any(not heading for heading in headings)
             or len(set(headings)) != len(headings)
         ):
-            self.error.setText("Dosya adı ve birbirinden farklı, boş olmayan sütun adları girin.")
+            self.error.setText(tr("Dosya adı ve birbirinden farklı, boş olmayan sütun adları girin."))
             self.error.show()
             return
         super().accept()
@@ -100,8 +102,10 @@ class WorkspaceActions:
             # If a removed external disk was selected, retain that preference
             # until the user explicitly chooses another working folder.
             self.workspace = Workspace(default)
-            self._workspace_startup_warning = (
-                f"Çalışma klasörü açılamadı: {error}\nGeçici olarak {default} gösteriliyor."
+            self._workspace_startup_warning = tr(
+                "Çalışma klasörü açılamadı: {error}\nGeçici olarak {directory} gösteriliyor.",
+                error=error,
+                directory=default,
             )
         if not self._workspace_startup_warning:
             self.settings.setValue("workspace_root", str(self.workspace.root))
@@ -137,14 +141,16 @@ class WorkspaceActions:
 
     def _document_opened(self):
         if self.page_tabs.count() == 1:
-            self.page_tabs.addTab(self.source_path.name if self.source_path else self.source_name)
+            self.page_tabs.addTab(
+                self.source_path.name if self.source_path else render_text(self.source_name)
+            )
         self._update_document_title()
         self.show_document()
 
     def _update_document_title(self):
         if self.document is None:
             return
-        name = self.source_path.name if self.source_path else self.source_name
+        name = self.source_path.name if self.source_path else render_text(self.source_name)
         dirty = " *" if self.dirty else ""
         if hasattr(self, "page_tabs") and self.page_tabs.count() > 1:
             self.page_tabs.setTabText(1, name + dirty)
@@ -152,9 +158,9 @@ class WorkspaceActions:
         self.setWindowTitle(f"{name}{dirty} · DataDesk")
         if hasattr(self, "save_button"):
             self.save_button.setToolTip(
-                "Tüm satırları çalışma dosyasına kaydet"
+                tr("Tüm satırları çalışma dosyasına kaydet")
                 if self._can_save_source()
-                else "Tüm satırları yeni bir çalışma dosyasına kaydet"
+                else tr("Tüm satırları yeni bir çalışma dosyasına kaydet")
             )
 
     def _folder_clicked(self, index):
@@ -167,12 +173,12 @@ class WorkspaceActions:
 
     def _workspace_menu(self):
         menu = QMenu(self)
-        menu.addAction("Yeni klasör…", self.new_workspace_folder)
-        menu.addAction("Yeni dosya…", self.new_workspace_file)
+        menu.addAction(tr("Yeni klasör…"), self.new_workspace_folder)
+        menu.addAction(tr("Yeni dosya…"), self.new_workspace_file)
         menu.addSeparator()
-        menu.addAction("Çalışma klasörünü değiştir…", self.choose_workspace_root)
+        menu.addAction(tr("Çalışma klasörünü değiştir…"), self.choose_workspace_root)
         menu.addAction(
-            "Çalışma klasörünü sistemde göster",
+            tr("Çalışma klasörünü sistemde göster"),
             lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.workspace.root))),
         )
         menu.exec(self.workspace_menu_button.mapToGlobal(self.workspace_menu_button.rect().bottomLeft()))
@@ -180,7 +186,9 @@ class WorkspaceActions:
     def choose_workspace_root(self):
         if self.busy:
             return
-        directory = QFileDialog.getExistingDirectory(self, "Çalışma klasörünü seç", str(self.workspace.root))
+        directory = QFileDialog.getExistingDirectory(
+            self, tr("Çalışma klasörünü seç"), str(self.workspace.root)
+        )
         if directory:
             self.set_workspace_root(directory)
 
@@ -206,7 +214,7 @@ class WorkspaceActions:
         if self.busy:
             return
         parent = self._workspace_parent(parent)
-        name, accepted = QInputDialog.getText(self, "Yeni klasör", "Klasör adı")
+        name, accepted = QInputDialog.getText(self, tr("Yeni klasör"), tr("Klasör adı"))
         if not accepted:
             return
         try:
@@ -216,7 +224,7 @@ class WorkspaceActions:
             return
         self.browser.navigate(path)
         self.show_files()
-        self.statusBar().showMessage(f"Klasör oluşturuldu: {path.name}")
+        self.statusBar().showMessage(tr("Klasör oluşturuldu: {name}", name=path.name))
 
     def new_workspace_file(self, parent=None):
         if self.busy:
@@ -246,7 +254,7 @@ class WorkspaceActions:
             return
         paths, _ = QFileDialog.getOpenFileNames(
             self,
-            "Çalışma klasörüne dosya kopyala",
+            tr("Çalışma klasörüne dosya kopyala"),
             self.settings.value("last_directory", str(Path.home())),
             "Excel / CSV / TSV (*.xlsx *.xlsm *.xls *.csv *.tsv)",
         )
@@ -260,15 +268,15 @@ class WorkspaceActions:
         def done(copied):
             self.browser.navigate(Path(parent))
             self.browser.refresh()
-            self.statusBar().showMessage(f"{len(copied)} dosya çalışma klasörüne kopyalandı.")
+            self.statusBar().showMessage(tr("{count} dosya çalışma klasörüne kopyalandı.", count=len(copied)))
 
-        self._run_task("Dosyalar kopyalanıyor…", lambda: self.workspace.import_files(paths, parent), done)
+        self._run_task(tr("Dosyalar kopyalanıyor…"), lambda: self.workspace.import_files(paths, parent), done)
 
     def rename_workspace_item(self, path):
         if self.busy:
             return
         path = Path(path)
-        name, accepted = QInputDialog.getText(self, "Yeniden adlandır", "Yeni ad", text=path.name)
+        name, accepted = QInputDialog.getText(self, tr("Yeniden adlandır"), tr("Yeni ad"), text=path.name)
         if not accepted:
             return
         try:
@@ -283,7 +291,7 @@ class WorkspaceActions:
             return
         path = Path(path)
         destination = QFileDialog.getExistingDirectory(
-            self, "Taşınacak klasörü seç", str(self.workspace.root)
+            self, tr("Taşınacak klasörü seç"), str(self.workspace.root)
         )
         if not destination:
             return
@@ -312,7 +320,7 @@ class WorkspaceActions:
         self.browser.navigate(new.parent)
         self.browser.refresh()
         self.statusBar().showMessage(
-            self.workspace.metadata_warning or f"Dosya konumu güncellendi: {new.name}"
+            self.workspace.metadata_warning or tr("Dosya konumu güncellendi: {name}", name=new.name)
         )
 
     def _can_save_source(self):
@@ -333,11 +341,11 @@ class WorkspaceActions:
     def save_document_as(self):
         if self.document is None or self.busy:
             return
-        base = self.source_path.stem if self.source_path else "Yeni tablo"
+        base = self.source_path.stem if self.source_path else tr("Yeni tablo")
         path, selected = QFileDialog.getSaveFileName(
             self,
-            "Tabloyu farklı kaydet · Tüm satırlar",
-            str(self.browser.current_directory / f"{base}_calisma.xlsx"),
+            tr("Tabloyu farklı kaydet · Tüm satırlar"),
+            str(self.browser.current_directory / tr("{base}_calisma.xlsx", base=base)),
             "Excel (*.xlsx);;CSV (*.csv);;TSV (*.tsv)",
         )
         if not path:
@@ -350,8 +358,8 @@ class WorkspaceActions:
                 path.exists()
                 and QMessageBox.question(
                     self,
-                    "Dosya zaten var",
-                    f"{path.name} değiştirilsin mi?",
+                    tr("Dosya zaten var"),
+                    tr("{name} değiştirilsin mi?", name=path.name),
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     QMessageBox.StandardButton.No,
                 )
@@ -366,11 +374,11 @@ class WorkspaceActions:
             return False
         path = Path(path).expanduser().resolve()
         if path.suffix.lower() not in {".xlsx", ".csv", ".tsv"}:
-            self.show_error("Çalışma tablosunu XLSX, CSV veya TSV olarak kaydedin.")
+            self.show_error(tr("Çalışma tablosunu XLSX, CSV veya TSV olarak kaydedin."))
             return False
         same = self._is_source(path)
         if same and not self._can_save_source():
-            self.show_error("Bu kaynak dosyayı korumak için Farklı kaydet ile yeni bir dosya oluşturun.")
+            self.show_error(tr("Bu kaynak dosyayı korumak için Farklı kaydet ile yeni bir dosya oluşturun."))
             return False
         frame = self.document.frame.copy(deep=True)
         identity = _identity(path)
@@ -382,9 +390,11 @@ class WorkspaceActions:
             os.close(handle)
             temporary = Path(temporary_name)
             try:
-                write_table(frame, temporary, ExportOptions(sheet_name="Veriler", safe_csv=False))
+                write_table(frame, temporary, ExportOptions(sheet_name=tr("Veriler"), safe_csv=False))
                 if _identity(path) != identity:
-                    raise ValueError("Dosya başka bir uygulamada değişti. Farklı bir dosya adıyla kaydedin.")
+                    raise ValueError(
+                        tr("Dosya başka bir uygulamada değişti. Farklı bir dosya adıyla kaydedin.")
+                    )
                 os.replace(temporary, path)
                 return path
             finally:
@@ -402,31 +412,32 @@ class WorkspaceActions:
             self._update_document_title()
             self.browser.refresh()
             self.statusBar().showMessage(
-                self.workspace.metadata_warning or f"Kaydedildi: {self.source_path.name} · {len(frame)} satır"
+                self.workspace.metadata_warning
+                or tr("Kaydedildi: {name} · {count} satır", name=self.source_path.name, count=len(frame))
             )
 
-        return self._run_task("Tablo kaydediliyor…", save, done)
+        return self._run_task(tr("Tablo kaydediliyor…"), save, done)
 
     def open_in_spreadsheet(self):
         if self.busy or self.source_path is None:
             return
         if self.dirty:
             self.show_error(
-                "Düzenlemeleri önce Kaydet ile kaydedin. Ardından dosyayı Excel'de açabilirsiniz."
+                tr("Düzenlemeleri önce Kaydet ile kaydedin. Ardından dosyayı Excel'de açabilirsiniz.")
             )
             return
         if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.source_path))):
-            self.show_error("Dosya açılamadı. Bilgisayarınızda bu biçimi açan bir uygulama bulunamadı.")
+            self.show_error(tr("Dosya açılamadı. Bilgisayarınızda bu biçimi açan bir uygulama bulunamadı."))
 
     def add_column(self):
         if self.document is None or self.busy:
             return
-        name, accepted = QInputDialog.getText(self, "Sütun ekle", "Sütun adı")
+        name, accepted = QInputDialog.getText(self, tr("Sütun ekle"), tr("Sütun adı"))
         if not accepted:
             return
         name = name.strip()
         if not name or name in self.document.frame.columns:
-            self.show_error("Boş olmayan ve tabloda bulunmayan bir sütun adı girin.")
+            self.show_error(tr("Boş olmayan ve tabloda bulunmayan bir sütun adı girin."))
             return
         self.document.checkpoint()
         self.document.frame[name] = pd.Series(None, index=self.document.frame.index, dtype=object)

@@ -1,20 +1,43 @@
-DataDesk — macOS kurulumu
+DataDesk — macOS kurulumu / Installation
 
-1. Bu disk görüntüsündeki DataDesk uygulamasını Applications klasörüne sürükleyin.
-2. Kopyalama tamamlandıktan sonra disk görüntüsünü çıkarın.
+Türkçe
+
+1. DataDesk uygulamasını Applications klasörüne sürükleyin.
+2. Kopyalama tamamlanınca disk görüntüsünü çıkarın.
 3. Applications klasöründeki DataDesk uygulamasını açın.
+4. Ayarlar bölümünden Açık / Koyu / Sistem temasını ve Türkçe / English dilini seçin.
 
-Python veya Microsoft Excel kurmanız gerekmez. Dosyalar cihazınızda işlenir.
-Bu paket macOS 14 (Sonoma) veya daha yeni bir macOS sürümü gerektirir.
-Kaynak Excel/CSV dosyaları değiştirilmez; sonuçları ayrı dosyaya dışa aktarın.
+Python veya Microsoft Excel gerekmez. Dosyalar cihazınızda işlenir.
+macOS 14 (Sonoma) veya daha yeni bir sürüm gerekir.
+Apple Silicon (M serisi) için arm64; Intel Mac için x86_64 paketini kullanın.
+Kaydet, çalışma tablosunun tüm satırlarını kaydeder. Dışa aktar, filtrelenmiş
+sonuçları ayrı dosyaya yazar. Dışarıdan açılan kaynak için yeni bir dosya istenir.
 
-Apple Silicon (M serisi) Mac için arm64; Intel Mac için x86_64 paketini kullanın.
-Bu paketi yalnızca DataDesk'in resmi GitHub deposundan indirin:
-https://github.com/KrAlmano/DataDesk
+English
 
-Geliştirme paketleri Apple tarafından noter onayından geçirilmiş olmayabilir.
-macOS paketi doğrulayamıyorsa imzalama durumunu sürüm notlarından kontrol edin.
-Güvenlik kontrollerini kapatan terminal komutları kullanmayın.
+1. Drag DataDesk to the Applications folder.
+2. Eject this disk image after the copy finishes.
+3. Open DataDesk from Applications.
+4. Open Ayarlar, select English and your preferred theme, then choose Uygula.
 
-Kaldırma: DataDesk uygulamasını Applications klasöründen Çöp Sepeti'ne taşıyın.
-Bu işlem açtığınız Excel/CSV dosyalarını veya dışa aktardığınız raporları silmez.
+Python and Microsoft Excel are not required. Files are processed locally.
+Requires macOS 14 (Sonoma) or newer. Choose arm64 for Apple Silicon (M series)
+and x86_64 for Intel Macs. Save writes every row in your working table; Export
+writes the filtered result to a separate file. External sources use Save as.
+
+Güvenlik / Security
+
+Resmi indirme kaynağı / Official download:
+https://github.com/KrAlmano/DataDesk/releases/latest
+
+Apple Developer ID imzası ve noter onayı durumunu sürüm notlarından kontrol edin.
+Güvenlik kontrollerini kapatmayın. Kurulum ayrıntıları:
+https://github.com/KrAlmano/DataDesk/blob/main/docs/MACOS.md
+
+Check release notes for signing and notarization status. Do not disable system
+protection. English installation instructions:
+https://github.com/KrAlmano/DataDesk/blob/main/README.en.md#install
+
+Kaldırmak için DataDesk'i Applications'tan Çöp Sepeti'ne taşıyın.
+Uninstall by moving DataDesk from Applications to Trash.
+Çalışma dosyaları silinmez. Your working files are left in place.

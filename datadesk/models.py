@@ -8,6 +8,7 @@ from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtGui import QColor
 
 from .core import display_value, infer_kind
+from .translations_engine import tr
 
 
 @dataclass
@@ -80,9 +81,13 @@ class TableModel(QAbstractTableModel):
         if not index.isValid() or index.row() >= len(self.frame) or index.column() >= len(self.frame.columns):
             return None
         value = self.frame.iat[index.row(), index.column()]
-        if role in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole):
-            return display_value(value)
-        if role == Qt.ItemDataRole.ToolTipRole:
+        if role in (
+            Qt.ItemDataRole.DisplayRole,
+            Qt.ItemDataRole.EditRole,
+            Qt.ItemDataRole.ToolTipRole,
+        ):
+            if pd.api.types.is_bool(value):
+                return tr("Evet") if value else tr("Hayır")
             return display_value(value)
         if role == Qt.ItemDataRole.TextAlignmentRole:
             return int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
@@ -100,9 +105,18 @@ class TableModel(QAbstractTableModel):
                 return str(self.frame.columns[section])
             return str(section + 1)
         if role == Qt.ItemDataRole.ToolTipRole and orientation == Qt.Orientation.Horizontal:
-            kinds = {"text": "Metin", "number": "Sayı", "date": "Tarih", "boolean": "Mantıksal"}
+            kinds = {
+                "text": tr("Metin"),
+                "number": tr("Sayı"),
+                "date": tr("Tarih"),
+                "boolean": tr("Mantıksal"),
+            }
             kind = self.kinds.get(self.frame.columns[section], "text")
-            return f"{self.frame.columns[section]} · {kinds.get(kind, kind)}\nSıralamak için tıklayın."
+            return tr(
+                "{column} · {kind}\nSıralamak için tıklayın.",
+                column=self.frame.columns[section],
+                kind=kinds.get(kind, kind),
+            )
         return None
 
     def flags(self, index):
@@ -122,6 +136,6 @@ class TableModel(QAbstractTableModel):
             return False
         row = self.frame.index[index.row()]
         col = self.frame.columns[index.column()]
-        if display_value(self.frame.at[row, col]) == str(value):
+        if self.data(index, Qt.ItemDataRole.EditRole) == str(value):
             return False
         return bool(self.edit_callback(row, col, value))

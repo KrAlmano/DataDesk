@@ -1,15 +1,17 @@
 # Windows kurulumu
 
+[Türkçe kullanım kılavuzu](KULLANIM.md) · [English installation overview](../README.en.md#install) · [English user guide](USAGE.en.md)
+
 DataDesk'in Windows ve macOS sürümleri aynı veri motorunu ve aynı arayüzü kullanır. Windows paketi uygulamayı ve gereken Python/Qt bileşenlerini birlikte taşır; son kullanıcı için Python, uv veya Excel kurulumu gerekmez.
 
 ## Hazır paketle kurulum
 
-1. [En son DataDesk sürümünü](https://github.com/KrAlmano/DataDesk/releases/latest) açın. **Assets** bölümünden `DataDesk-1.1.0-windows-x64-setup.exe` dosyasını indirin. Yeni sürümlerde dosya adındaki sürüm numarası değişir.
+1. [En son DataDesk sürümünü](https://github.com/KrAlmano/DataDesk/releases/latest) açın. **Assets** bölümünden `DataDesk-1.2.0-windows-x64-setup.exe` dosyasını indirin. Yeni sürümlerde dosya adındaki sürüm numarası değişir.
 2. İndirdiğiniz kurulum dosyasını çift tıklayarak açın.
 3. Kurulum adımlarını izleyin. DataDesk varsayılan olarak kullanıcının `%LOCALAPPDATA%\Programs\DataDesk` dizinine kurulur; yönetici yetkisi istemez.
 4. İsterseniz masaüstü kısayolunu işaretleyin. Uygulamayı **Başlat → DataDesk** üzerinden açın.
 
-Kurulum dili Türkçe veya İngilizce seçilebilir. Uygulamanın veri çalışma alanı her iki işletim sisteminde de Türkçedir. Windows kısayollarında `Ctrl`, macOS kısayollarında `Cmd` kullanılır. Kurulum, Excel/CSV dosyalarının varsayılan açılış uygulamasını değiştirmez.
+Kurulum dili Türkçe veya İngilizce seçilebilir. Uygulamanın arayüz dili ayrıca üstteki **Ayarlar** düğmesinden seçilir: **Türkçe** veya **English**. Aynı pencerede açık/koyu/sistem teması ve %75–150 arayüz boyutu bulunur. **Uygula**, uygulamayı yeniden başlatmadan değişiklikleri etkinleştirir; tercihler sonraki açılışta hatırlanır. Windows kısayollarında `Ctrl`, macOS kısayollarında `Cmd` kullanılır; ayarlar için `Ctrl+,` kullanılabilir. Kurulum, Excel/CSV dosyalarının varsayılan açılış uygulamasını değiştirmez.
 
 İlk açılışta **Dosyalar** görünümü gelir. Varsayılan çalışma klasörü sisteminizin **Belgeler / DataDesk** konumudur; **Dosya → Çalışma klasörünü değiştir** ile başka bir klasör seçebilirsiniz. Klasör ve yeni tablo oluşturma, dosya ekleme, kaydetme ve filtreleme adımları [kullanım rehberindedir](KULLANIM.md).
 
@@ -20,7 +22,7 @@ Bu sürüm Windows kod imzası taşımıyor; ilk çalıştırmada Windows tanın
 İndirilen dosyanın özetini PowerShell ile görmek için:
 
 ```powershell
-Get-FileHash .\DataDesk-1.1.0-windows-x64-setup.exe -Algorithm SHA256
+Get-FileHash .\DataDesk-1.2.0-windows-x64-setup.exe -Algorithm SHA256
 ```
 
 Değeri paketle birlikte gelen `.exe.sha256` dosyasının ilk alanıyla karşılaştırın.
@@ -78,8 +80,8 @@ Buradaki yürütme ilkesi yalnızca başlatılan PowerShell işlemi içindir; si
 ```text
 dist/DataDesk/DataDesk.exe
 dist/DataDesk/_internal/...
-dist/installers/DataDesk-1.1.0-windows-x64-setup.exe
-dist/installers/DataDesk-1.1.0-windows-x64-setup.exe.sha256
+dist/installers/DataDesk-1.2.0-windows-x64-setup.exe
+dist/installers/DataDesk-1.2.0-windows-x64-setup.exe.sha256
 ```
 
 Taşınabilir uygulama klasörünü kullanacaksanız `dist/DataDesk` klasörünün tamamı gerekir; `DataDesk.exe` dosyasını tek başına kopyalamayın. Normal dağıtım için `setup.exe` dosyasını paylaşın.
@@ -99,7 +101,7 @@ Temiz bir Windows kullanıcısında, üretilen kurulum dosyasını gerçek kurul
 
 ```powershell
 pwsh -File packaging/windows/Test-Installer.ps1 `
-  -InstallerPath dist/installers/DataDesk-1.1.0-windows-x64-setup.exe `
+  -InstallerPath dist/installers/DataDesk-1.2.0-windows-x64-setup.exe `
   -ReportDirectory dist/installer-test-reports
 ```
 

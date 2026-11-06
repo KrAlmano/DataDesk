@@ -1,5 +1,7 @@
 # macOS kurulumu ve paketleme
 
+[Türkçe kullanım kılavuzu](KULLANIM.md) · [English installation overview](../README.en.md#install) · [English user guide](USAGE.en.md)
+
 DataDesk'in macOS ve Windows sürümleri aynı arayüzü ve aynı veri motorunu kullanır. macOS paketi uygulama simgesi, Finder'dan başlatma ve Command kısayollarıyla sisteme uyarlanır. Hazır uygulamada Python veya Microsoft Excel kurulumu gerekmez.
 
 Hazır paket **macOS 14 (Sonoma) veya sonrası** içindir. Kullanılan kilitli Qt/PySide6 ikililerinin dağıtım hedefi bu alt sınırı belirler; Python'un daha eski bir macOS'ta çalışabilmesi, hazır DataDesk paketinin de orada çalışacağı anlamına gelmez.
@@ -15,6 +17,8 @@ Hazır paket **macOS 14 (Sonoma) veya sonrası** içindir. Kullanılan kilitli Q
 Güncellemeden önce açık tablodaki düzenlemelerinizi kaydedip DataDesk'i kapatın. Yeni sürümü aynı Applications klasörüne kopyalayın. Uygulamayı kaldırmak için DataDesk.app dosyasını Çöp Sepeti'ne taşıyın. Çalışma klasörünüz, Excel/CSV dosyalarınız ve çıktılarınız uygulama paketinin dışında kalır ve silinmez.
 
 İlk açılışta **Dosyalar** görünümü gelir. Çalışma klasörü varsayılan olarak sisteminizin **Belgeler / DataDesk** konumudur. Buradan klasör ve yeni tablo oluşturabilir veya dosyalarınızın kopyalarını ekleyebilirsiniz. **Dosya → Çalışma klasörünü değiştir** ile başka bir konum seçilebilir.
+
+DataDesk 1.2.0'da üstteki **Ayarlar** düğmesinden veya `Cmd+,` kısayoluyla açık/koyu/sistem teması, Türkçe/İngilizce arayüz ve %75–150 arayüz boyutu seçebilirsiniz. **Uygula** yeniden başlatmadan değiştirir; tercihler güncelleme ve sonraki açılışlarda korunur. Dil seçimi dosya adlarını veya hücre içeriklerini değiştirmez.
 
 Kurulumdan sonra [görsellerle kullanım kılavuzunu](KULLANIM.md) izleyebilirsiniz. Geliştirme paketleri ve test raporları ayrıca [Desktop packages](https://github.com/KrAlmano/DataDesk/actions/workflows/desktop-packages.yml) çalışmasının Artifacts bölümündedir; buradan indirme GitHub oturumu gerektirebilir.
 
@@ -72,10 +76,10 @@ Bu değişkenler verilmezse betik yerel geliştirme paketi üretir ve noter onay
 ## Paketi doğrulama
 
 ```bash
-hdiutil verify dist/installers/DataDesk-1.1.0-macos-arm64.dmg
+hdiutil verify dist/installers/DataDesk-1.2.0-macos-arm64.dmg
 codesign --verify --deep --strict dist/DataDesk.app
 QT_QPA_PLATFORM=offscreen dist/DataDesk.app/Contents/MacOS/DataDesk --smoke-test /tmp/datadesk-macos-smoke.json
-bash packaging/macos/verify.sh dist/installers/DataDesk-1.1.0-macos-arm64.dmg
+bash packaging/macos/verify.sh dist/installers/DataDesk-1.2.0-macos-arm64.dmg
 ```
 
 Smoketest kurulu Python yerine uygulamanın gömülü çalışma ortamını kullanır. `verify.sh`, DMG'yi salt okunur bağlar, Applications kısayolunu denetler ve uygulamayı geçici bir kurulum klasörüne kopyalayıp gömülü çalışma ortamıyla test eder; gerçek Applications klasörünü değiştirmez. Raporu DMG'nin yanında `-smoke.json` adıyla tutar. Farklı bir Mac'te Applications klasörüne kopyalanmış uygulamayla da açılış, dosya okuma, filtreleme ve çıktı alma akışlarını denetleyin. Bir mimarideki yerel test, diğer mimarinin veya başka bir macOS sürümünün çalıştığını tek başına kanıtlamaz.

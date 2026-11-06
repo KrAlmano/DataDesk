@@ -1,6 +1,8 @@
 # DataDesk kullanım kılavuzu
 
-DataDesk 1.1.0'da dosyalarınızı klasörler halinde düzenleyebilir, yeni tablolar oluşturabilir ve Excel/CSV verilerinden filtrelenmiş çıktılar alabilirsiniz. Dosyalar bilgisayarınızda kalır. macOS ve Windows aynı arayüzü kullanır; kısayollarda macOS'ta **Cmd**, Windows'ta **Ctrl** geçerlidir.
+[Türkçe](KULLANIM.md) · [English](USAGE.en.md) · [Ana sayfa](../README.md)
+
+DataDesk 1.2.0'da dosyalarınızı klasörler halinde düzenleyebilir, yeni tablolar oluşturabilir ve Excel/CSV verilerinden filtrelenmiş çıktılar alabilirsiniz. Dosyalar bilgisayarınızda kalır. macOS ve Windows aynı arayüzü kullanır; kısayollarda macOS'ta **Cmd**, Windows'ta **Ctrl** geçerlidir.
 
 [Kurulum paketini indirin](https://github.com/KrAlmano/DataDesk/releases/latest). Kurulum adımları: [macOS](MACOS.md) · [Windows](WINDOWS.md). Hazır uygulama için Python veya Excel gerekmez.
 
@@ -115,6 +117,23 @@ Alt çubuktaki `−` ve `＋` veya **Görünüm** menüsüyle arayüzü %75–15
 
 ![Yüzde 150 arayüz büyüklüğü](screenshots/07-zoom.png)
 
+## 8. Tema ve dil seçin
+
+Üst çubuktaki **Ayarlar** düğmesi hem **Dosyalar** hem tablo görünümünde kullanılabilir. `Cmd+,` (macOS) veya `Ctrl+,` (Windows) kısayolu da ayarları açar.
+
+1. **Arayüz dili** alanında **Türkçe** veya **English** seçin.
+2. **Tema** alanında **Açık**, **Koyu** veya **Sistem** seçin. Sistem seçeneği işletim sisteminizin görünümünü izler; sistem görünümünü değiştirince DataDesk de güncellenir.
+3. **Arayüz boyutu** alanında %75, %100, %125 veya %150 seçin.
+4. **Uygula** ile değişiklikleri etkinleştirin. **Vazgeç**, seçimleri uygulamadan kapatır. Uygulamayı yeniden başlatmak gerekmez; tercihler sonraki açılışta korunur.
+
+![İngilizce ve koyu temada ayarlar penceresi](screenshots/12-settings.png)
+
+Dil yalnızca menü, düğme ve açıklamaları değiştirir. Dosya/klasör adları, sütun başlıkları ve hücrelerdeki veriler çevrilmez. Açık belgeniz, geçerli filtreler, arama ve düzenleme geçmişi korunur. **English** seçildiğinde ayar düğmesinin adı **Settings**, onay düğmesinin adı **Apply** olur. Sayı biçimi seçimi arayüz dilinden bağımsızdır: Türkçe yazılmış sayılar için İngilizce arayüzde de **Turkish** sayı biçimini seçebilirsiniz.
+
+![Koyu temada aynı filtre sonucuyla çalışma](screenshots/10-dark.png)
+
+![İngilizce arayüzde kaynak sütun adları ve verileri korunur](screenshots/11-english.png)
+
 ## Kısayollar
 
 | İşlem | macOS | Windows |
@@ -130,6 +149,7 @@ Alt çubuktaki `−` ve `＋` veya **Görünüm** menüsüyle arayüzü %75–15
 | Geri al | `Cmd+Z` | `Ctrl+Z` |
 | Büyüt / küçült | `Cmd++` / `Cmd+−` | `Ctrl++` / `Ctrl+−` |
 | Arayüzü %100'e döndür | `Cmd+0` | `Ctrl+0` |
+| Ayarlar | `Cmd+,` | `Ctrl+,` |
 
 Dosya görünümünde `F5` yeniler; `Alt+Sol` önceki klasöre, `Alt+Yukarı` üst klasöre gider. Alanlar arasında `Tab` / `Shift+Tab` kullanın. Seçili tablo satırlarını başlıklarıyla kopyalamak için `Cmd/Ctrl+C` kullanın.
 

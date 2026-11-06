@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from datadesk.dialogs import ExportDialog, ImportDialog, demo_frame  # noqa: E402
 from datadesk.io import ExportOptions, ImportOptions, inspect_file, read_table, write_table  # noqa: E402
+from datadesk.settings_ui import SettingsDialog  # noqa: E402
 from datadesk.theme import configure_app  # noqa: E402
 from datadesk.ui import MainWindow  # noqa: E402
 from datadesk.workspace_ui import NewTableDialog  # noqa: E402
@@ -96,6 +97,7 @@ def render(output):
             )
         )
         window = MainWindow(workspace_root=directory / "DataDesk")
+        assert window.apply_preferences(language="tr", theme="light", zoom=100)
         sales_folder = window.workspace.create_folder(".", "Satışlar")
         window.workspace.create_folder(".", "Giderler")
         window.workspace.create_folder(".", "Arşiv")
@@ -105,6 +107,15 @@ def render(output):
         window.set_zoom(100)
         window.resize(1440, 900)
         window.show()
+        settle(application)
+        # QFileSystemModel populates asynchronously; wait for the real folder
+        # tree instead of capturing a transient empty sidebar on first launch.
+        tree_deadline = time.monotonic() + 5
+        while window.folder_model.rowCount(window.folder_tree.rootIndex()) < 3:
+            application.processEvents()
+            if time.monotonic() > tree_deadline:
+                raise RuntimeError("The sample folders did not appear in the sidebar")
+            time.sleep(0.02)
         settle(application)
         capture(window, gallery / "01-start.png", output / "screenshot-empty.png")
 
@@ -196,6 +207,39 @@ def render(output):
         window.set_zoom(150)
         settle(application)
         capture(window, gallery / "07-zoom.png", output / "screenshot-zoom.png")
+
+        # Capture the same loaded document after real preference changes. The
+        # Turkish source headings/values remain unchanged in the English UI.
+        source_frame = window.document.frame.copy(deep=True)
+        window.resize(1440, 900)
+        assert window.apply_preferences(language="tr", theme="dark", zoom=100)
+        settle(application, window)
+        if not window.filter_container.isVisible():
+            window.toggle_filters()
+        window.filter_tabs.setCurrentIndex(1)
+        settle(application)
+        assert len(window.rules) == 2
+        assert len(window.model.frame) == 37
+        capture(window, gallery / "10-dark.png")
+
+        assert window.apply_preferences(language="en", theme="light", zoom=100)
+        settle(application, window)
+        assert window.document.frame.equals(source_frame)
+        assert len(window.rules) == 2
+        assert len(window.model.frame) == 37
+        capture(window, gallery / "11-english.png")
+
+        assert window.apply_preferences(language="en", theme="dark", zoom=100)
+        settle(application, window)
+        settings = SettingsDialog(window, language="en", theme="dark", zoom=100)
+        show_dialog(application, settings, 580, 440)
+        capture(settings, gallery / "12-settings.png")
+        settings.close()
+        settle(application)
+
+        window.page_tabs.setCurrentIndex(0)
+        settle(application)
+        capture(window, gallery / "13-workspace-dark.png")
         window.dirty = False
         window.close()
         settle(application)
