@@ -4,14 +4,14 @@ DataDesk'in Windows ve macOS sürümleri aynı veri motorunu ve aynı arayüzü 
 
 ## Hazır paketle kurulum
 
-1. [En son DataDesk sürümünü](https://github.com/KrAlmano/DataDesk/releases/latest) açın. **Assets** bölümünden `DataDesk-1.0.0-windows-x64-setup.exe` dosyasını indirin. Yeni sürümlerde dosya adındaki sürüm numarası değişir.
+1. [En son DataDesk sürümünü](https://github.com/KrAlmano/DataDesk/releases/latest) açın. **Assets** bölümünden `DataDesk-1.1.0-windows-x64-setup.exe` dosyasını indirin. Yeni sürümlerde dosya adındaki sürüm numarası değişir.
 2. İndirdiğiniz kurulum dosyasını çift tıklayarak açın.
 3. Kurulum adımlarını izleyin. DataDesk varsayılan olarak kullanıcının `%LOCALAPPDATA%\Programs\DataDesk` dizinine kurulur; yönetici yetkisi istemez.
 4. İsterseniz masaüstü kısayolunu işaretleyin. Uygulamayı **Başlat → DataDesk** üzerinden açın.
 
 Kurulum dili Türkçe veya İngilizce seçilebilir. Uygulamanın veri çalışma alanı her iki işletim sisteminde de Türkçedir. Windows kısayollarında `Ctrl`, macOS kısayollarında `Cmd` kullanılır. Kurulum, Excel/CSV dosyalarının varsayılan açılış uygulamasını değiştirmez.
 
-Dosya açma, filtre ekleme ve sonuçları dışa aktarma adımları için [kullanım rehberini](KULLANIM.md) izleyin.
+İlk açılışta **Dosyalar** görünümü gelir. Varsayılan çalışma klasörü sisteminizin **Belgeler / DataDesk** konumudur; **Dosya → Çalışma klasörünü değiştir** ile başka bir klasör seçebilirsiniz. Klasör ve yeni tablo oluşturma, dosya ekleme, kaydetme ve filtreleme adımları [kullanım rehberindedir](KULLANIM.md).
 
 Paket Windows **10 sürüm 1809 (derleme 17763) veya sonrası / Windows 11, x64** içindir. Bu alt sınır kullanılan Qt 6.12 sürümünün [Windows destek tablosuyla](https://doc.qt.io/qt-6.12/windows.html) eşleşir. Yerel ARM64 paketi yerine x64 paket hazırlanır; ARM cihazlar için doğal ARM64 desteği vaat edilmez.
 
@@ -20,16 +20,16 @@ Bu sürüm Windows kod imzası taşımıyor; ilk çalıştırmada Windows tanın
 İndirilen dosyanın özetini PowerShell ile görmek için:
 
 ```powershell
-Get-FileHash .\DataDesk-1.0.0-windows-x64-setup.exe -Algorithm SHA256
+Get-FileHash .\DataDesk-1.1.0-windows-x64-setup.exe -Algorithm SHA256
 ```
 
 Değeri paketle birlikte gelen `.exe.sha256` dosyasının ilk alanıyla karşılaştırın.
 
 ## Güncelleme ve kaldırma
 
-- Güncellemeden önce açık DataDesk penceresindeki düzenlemeleri dışa aktarın ve uygulamayı kapatın. Yeni kurulum dosyasını çalıştırın; önceki kurulum dizini ve kısayol tercihi korunur.
+- Güncellemeden önce açık DataDesk penceresindeki düzenlemeleri kaydedin ve uygulamayı kapatın. Yeni kurulum dosyasını çalıştırın; önceki kurulum dizini ve kısayol tercihi korunur.
 - Kaldırmak için **Ayarlar → Uygulamalar → Yüklü uygulamalar → DataDesk → Kaldır** yolunu kullanın.
-- Kaldırıcı yalnızca kurduğu uygulama dosyalarını ve kısayolları kaldırır. Çalıştığınız Excel/CSV dosyalarını, dışa aktardığınız çıktıları ve kullanıcı tercihlerini silmez.
+- Kaldırıcı yalnızca kurduğu uygulama dosyalarını ve kısayolları kaldırır. Çalışma klasörünüzü, Excel/CSV dosyalarınızı, dışa aktardığınız çıktıları ve kullanıcı tercihlerini silmez.
 
 ## Kaynak koddan çalıştırma
 
@@ -78,8 +78,8 @@ Buradaki yürütme ilkesi yalnızca başlatılan PowerShell işlemi içindir; si
 ```text
 dist/DataDesk/DataDesk.exe
 dist/DataDesk/_internal/...
-dist/installers/DataDesk-1.0.0-windows-x64-setup.exe
-dist/installers/DataDesk-1.0.0-windows-x64-setup.exe.sha256
+dist/installers/DataDesk-1.1.0-windows-x64-setup.exe
+dist/installers/DataDesk-1.1.0-windows-x64-setup.exe.sha256
 ```
 
 Taşınabilir uygulama klasörünü kullanacaksanız `dist/DataDesk` klasörünün tamamı gerekir; `DataDesk.exe` dosyasını tek başına kopyalamayın. Normal dağıtım için `setup.exe` dosyasını paylaşın.
@@ -99,7 +99,7 @@ Temiz bir Windows kullanıcısında, üretilen kurulum dosyasını gerçek kurul
 
 ```powershell
 pwsh -File packaging/windows/Test-Installer.ps1 `
-  -InstallerPath dist/installers/DataDesk-1.0.0-windows-x64-setup.exe `
+  -InstallerPath dist/installers/DataDesk-1.1.0-windows-x64-setup.exe `
   -ReportDirectory dist/installer-test-reports
 ```
 

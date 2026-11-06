@@ -21,7 +21,7 @@ def workspace(qtbot, tmp_path, monkeypatch):
     monkeypatch.setattr(
         ui, "QSettings", lambda *_: QSettings(str(tmp_path / "layout.ini"), QSettings.Format.IniFormat)
     )
-    window = ui.MainWindow()
+    window = ui.MainWindow(workspace_root=tmp_path / "workspace")
     qtbot.addWidget(window, before_close_func=lambda w: setattr(w, "dirty", False))
     window.set_document(
         pd.DataFrame(
@@ -312,6 +312,7 @@ def test_high_dpi_render_keeps_logical_controls_and_all_rows(scale, tmp_path):
     # Each scale needs a fresh QApplication: Qt consumes this environment setting at startup.
     script = r"""
 import json, sys
+from pathlib import Path
 from PySide6.QtCore import QPoint, QRect, QSettings
 from PySide6.QtWidgets import QApplication
 from datadesk.theme import configure_app
@@ -320,7 +321,7 @@ app = QApplication([])
 configure_app(app)
 QSettings.setDefaultFormat(QSettings.Format.IniFormat)
 QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, sys.argv[1])
-w = MainWindow()
+w = MainWindow(workspace_root=Path(sys.argv[1]) / "workspace")
 w.open_demo()
 w.notice.hide()
 w.resize(1024, 768)

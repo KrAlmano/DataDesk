@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from .io import ExportOptions, ImportOptions
 from .models import TableModel
+from .widgets import ControlScrollArea
 
 
 def combo(items):
@@ -76,7 +77,7 @@ class ScrollableDialog(QDialog):
         self.shell = QVBoxLayout(self)
         self.shell.setContentsMargins(20, 18, 20, 18)
         self.shell.setSpacing(12)
-        self.content_scroll = QScrollArea()
+        self.content_scroll = ControlScrollArea()
         self.content_scroll.setWidgetResizable(True)
         self.content_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.content_scroll.setMinimumSize(0, 0)

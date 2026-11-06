@@ -23,6 +23,7 @@ from datadesk.dialogs import ExportDialog, ImportDialog, demo_frame  # noqa: E40
 from datadesk.io import ExportOptions, ImportOptions, inspect_file, read_table, write_table  # noqa: E402
 from datadesk.theme import configure_app  # noqa: E402
 from datadesk.ui import MainWindow  # noqa: E402
+from datadesk.workspace_ui import NewTableDialog  # noqa: E402
 
 
 def settle(application, window=None):
@@ -94,7 +95,13 @@ def render(output):
                 lambda *_: QSettings(str(directory / "settings.ini"), QSettings.Format.IniFormat),
             )
         )
-        window = MainWindow()
+        window = MainWindow(workspace_root=directory / "DataDesk")
+        sales_folder = window.workspace.create_folder(".", "Satışlar")
+        window.workspace.create_folder(".", "Giderler")
+        window.workspace.create_folder(".", "Arşiv")
+        customers = window.workspace.create_table(".", "Müşteriler.csv", ["Kod", "Ad", "Şehir"])
+        assert customers.is_file()
+        window.browser.refresh()
         window.set_zoom(100)
         window.resize(1440, 900)
         window.show()
@@ -102,6 +109,19 @@ def render(output):
         capture(window, gallery / "01-start.png", output / "screenshot-empty.png")
 
         source = sample_workbook(directory)
+        copied = window.workspace.import_files([source], sales_folder)[0]
+        window.workspace.create_table(sales_folder, "Kasım siparişleri.xlsx", ["Sipariş", "Müşteri", "Tutar"])
+        window.browser.navigate(sales_folder)
+        settle(application)
+        capture(window, gallery / "09-workspace.png")
+        creator = NewTableDialog(window)
+        creator.name.setText("Kasım giderleri")
+        creator.columns.setPlainText("Tarih\nAçıklama\nKategori\nTutar")
+        show_dialog(application, creator, 560, 510)
+        capture(creator, gallery / "08-new-file.png")
+        creator.close()
+        settle(application)
+        source = copied
         info = inspect_file(source)
         loaded = read_table(source, ImportOptions(sheet="Satışlar"))
         assert info.sheets == ["Özet", "Satışlar"]
@@ -118,6 +138,8 @@ def render(output):
 
         window.set_document(loaded.frame, "Ornek_Satislar.xlsx  /  Satışlar", source)
         window.notice.hide()
+        if not window.filter_container.isVisible():
+            window.toggle_filters()
         window.column.setCurrentText("Tutar")
         window.kind.setCurrentIndex(window.kind.findData("auto"))
         window.number_format.setCurrentIndex(window.number_format.findData("tr"))

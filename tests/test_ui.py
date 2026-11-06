@@ -19,7 +19,7 @@ def window(qtbot, tmp_path, monkeypatch):
     monkeypatch.setattr(
         ui, "QSettings", lambda *_: QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
     )
-    widget = ui.MainWindow()
+    widget = ui.MainWindow(workspace_root=tmp_path / "workspace")
     qtbot.addWidget(widget, before_close_func=lambda w: setattr(w, "dirty", False))
     widget.test_errors = []
     monkeypatch.setattr(widget, "show_error", widget.test_errors.append)

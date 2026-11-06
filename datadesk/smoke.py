@@ -20,15 +20,21 @@ def run_smoke_test(app):
     from .core import FilterRule
     from .io import ExportOptions, ImportOptions, inspect_file, read_table
     from .ui import MainWindow
+    from .workspace import Workspace
 
     def wait_for(window):
         deadline = time.monotonic() + 30
-        while window.busy and time.monotonic() < deadline:
+        idle_rounds = 0
+        while time.monotonic() < deadline:
             app.processEvents()
+            if not window.busy and not window.tasks and not window.search_timer.isActive():
+                idle_rounds += 1
+                if idle_rounds >= 3:
+                    return
+            else:
+                idle_rounds = 0
             time.sleep(0.01)
-        if window.busy:
-            raise RuntimeError("The installed application did not complete its background task.")
-        app.processEvents()
+        raise RuntimeError("The installed application did not complete its background task.")
 
     checks = []
     with tempfile.TemporaryDirectory(prefix="datadesk-installed-test-") as temporary:
@@ -64,7 +70,10 @@ def run_smoke_test(app):
             if QIcon(str(assets / name)).isNull():
                 raise AssertionError(f"Packaged SVG asset could not be loaded: {name}")
         checks.append("native_qt_plugins_and_svg_assets")
-        window = MainWindow(settings=QSettings(str(directory / "settings.ini"), QSettings.Format.IniFormat))
+        window = MainWindow(
+            settings=QSettings(str(directory / "settings.ini"), QSettings.Format.IniFormat),
+            workspace_root=directory / "workspace",
+        )
         errors = []
         window.show_error = errors.append
         try:
@@ -105,6 +114,66 @@ def run_smoke_test(app):
             if not xlrd.__version__:
                 raise AssertionError("Legacy XLS support is missing from this bundle.")
             checks.append("legacy_xls_reader_available")
+
+            folder = window.workspace.create_folder(".", "Türkçe çalışma klasörü")
+            window.browser.navigate(folder)
+            window.show_files()
+            if window.browser.current_directory != folder or not folder.is_dir():
+                raise AssertionError("The installed workspace could not navigate its real folder.")
+            checks.append("workspace_real_folder_and_browser_navigation")
+            working = window.create_workspace_file(folder, "Yeni çalışma", ["Kod", "Tutar"])
+            wait_for(window)
+            if working is None or read_table(working).frame.shape != (0, 2):
+                raise AssertionError(
+                    f"The installed workspace could not create an empty Excel file: {errors}"
+                )
+            for code, amount in [("0001", "12,50"), ("0002", "350,00"), ("0003", "25,00")]:
+                window.document.add({"Kod": code, "Tutar": amount})
+            window.document.checkpoint()
+            window.document.frame["Açıklama"] = ["İlk kayıt", "İkinci kayıt", "Son kayıt"]
+            window._after_edit()
+            wait_for(window)
+            if window.column.findText("Açıklama") == -1 or window.model.rowCount() != 3:
+                raise AssertionError("The installed workspace did not refresh added rows/columns.")
+            checks.append("workspace_new_xlsx_add_rows_and_column")
+            window.apply_view(rules=[FilterRule("Kod", "equals", "0002")])
+            wait_for(window)
+            if window.model.frame["Kod"].tolist() != ["0002"]:
+                raise AssertionError("The new working table could not be filtered.")
+            window.save_document()
+            wait_for(window)
+            if window.dirty or read_table(working).frame["Kod"].tolist() != ["0001", "0002", "0003"]:
+                raise AssertionError("Saving a filtered working table omitted source rows.")
+            checks.append("workspace_save_preserves_all_rows_under_filter")
+
+            window.workspace = Workspace(window.workspace.root)
+            if not window.workspace.is_managed(working):
+                raise AssertionError(
+                    "The saved workspace table was not recognised after restoring its catalogue."
+                )
+            renamed = window.workspace.rename(working, "Yeniden adlandırılmış.xlsx")
+            window._item_moved(working, renamed)
+            archive = window.workspace.create_folder(".", "Arşiv")
+            moved = window.workspace.move(renamed, archive)
+            window._item_moved(renamed, moved)
+            if window.source_path != moved or not window._can_save_source():
+                raise AssertionError("The installed editor lost its table after renaming/moving the file.")
+            window.document.edit(0, "Açıklama", "Güncellenmiş kayıt")
+            window._after_edit()
+            wait_for(window)
+            window.save_document()
+            wait_for(window)
+            window.open_path(moved)
+            wait_for(window)
+            if (
+                errors
+                or window.source_path != moved
+                or window.document.frame["Kod"].tolist() != ["0001", "0002", "0003"]
+                or window.document.frame.at[0, "Açıklama"] != "Güncellenmiş kayıt"
+                or source.read_bytes() != original
+            ):
+                raise AssertionError(f"Installed workspace rename/move/save/reopen failed: {errors}")
+            checks.append("workspace_rename_move_and_reopen_managed_table")
         finally:
             wait_for(window)
             window.dirty = False
