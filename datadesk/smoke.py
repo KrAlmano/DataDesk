@@ -56,7 +56,9 @@ def run_smoke_test(app):
         checks.append("xlsx_multiple_sheets_and_leading_zero_ids")
         assets = Path(__file__).parent / "assets"
         if not (assets / "fonts" / "Inter.ttf").is_file() or "Inter" not in app.font().family():
-            raise AssertionError("The shared macOS/Windows font is missing.")
+            raise AssertionError(
+                f"The shared macOS/Windows font is missing (file_exists={(assets / 'fonts' / 'Inter.ttf').is_file()}, family={app.font().family()!r}, assets={assets})."
+            )
         checks.append("same_bundled_inter_font_on_both_platforms")
         for name in ("icon.svg", "chevron.svg"):
             if QIcon(str(assets / name)).isNull():

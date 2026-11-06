@@ -1,8 +1,11 @@
 """DataDesk's restrained, accessible desktop palette."""
 
+from PySide6.QtCore import QByteArray
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
 import re
 from pathlib import Path
+
+_shared_font_family = None
 
 
 def scaled_style(percent=100):
@@ -13,14 +16,18 @@ def scaled_style(percent=100):
 
 
 def configure_app(app):
+    global _shared_font_family
     app.setStyle("Fusion")
     # Ship one font, so Windows and macOS use the same typography and metrics.
     font_file = Path(__file__).parent / "assets" / "fonts" / "Inter.ttf"
-    families = QFontDatabase.families()
-    if "Inter" not in families and font_file.is_file():
-        QFontDatabase.addApplicationFont(str(font_file))
-        families = QFontDatabase.families()
-    app.setFont(QFont("Inter" if "Inter" in families else app.font().family(), 12))
+    if _shared_font_family is None and font_file.is_file():
+        # Loading from bytes also works when a Windows install path contains
+        # Turkish characters, instead of passing that path to a font backend.
+        font_id = QFontDatabase.addApplicationFontFromData(QByteArray(font_file.read_bytes()))
+        families = QFontDatabase.applicationFontFamilies(font_id)
+        if families:
+            _shared_font_family = families[0]
+    app.setFont(QFont(_shared_font_family or app.font().family(), 12))
     palette = QPalette()
     for role, color in [
         (QPalette.ColorRole.Window, "#f4f7f6"),
